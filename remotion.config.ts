@@ -11,3 +11,12 @@ import { enableTailwind } from '@remotion/tailwind-v4';
 Config.setVideoImageFormat("jpeg");
 Config.setOverwriteOutput(true);
 Config.overrideWebpackConfig(enableTailwind);
+// Works around a webpack wasm-hash crash on newer Node.js versions
+// (https://github.com/webpack/webpack/issues/17870)
+Config.overrideWebpackConfig((config) => ({
+  ...config,
+  output: {
+    ...config.output,
+    hashFunction: "sha256",
+  },
+}));
