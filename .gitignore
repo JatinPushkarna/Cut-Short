@@ -5,3 +5,18 @@ dist
 
 # Ignore the output video from Git but not videos you import into src/.
 out
+
+# Remotion's staticFile() only resolves inside public/, so per-project source
+# footage, scripts, and generated clips have to live there -- but that's
+# user/generated data, not tool source code. Same reasoning as `projects`
+# below: don't ship anyone's actual source video in this repo's history.
+public
+
+# Generated per-user Cut-Short projects (objective.md + path references) --
+# runtime output, not tool source code.
+projects
+
+# Campaign-specific composition content -- daily promo compositions and the shared
+# components/typography they use. Campaign work, not part of the cutshort
+# tool itself, so it stays out of this repo's history.
+src/<project>/
