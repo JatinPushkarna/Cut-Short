@@ -17,17 +17,22 @@
   },
   "devDependencies": {
     "@remotion/eslint-config-flat": "4.0.500",
+    "@types/prompts": "^2.4.9",
     "@types/react": "19.2.7",
     "@types/web": "0.0.166",
+    "commander": "^15.0.0",
     "eslint": "9.19.0",
     "prettier": "3.8.1",
+    "prompts": "^2.4.2",
+    "tsx": "^4.23.1",
     "typescript": "5.9.3"
   },
   "scripts": {
     "dev": "remotion studio",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
-    "lint": "eslint src && tsc"
+    "lint": "eslint src && tsc",
+    "cutshort": "tsx cli/index.ts"
   },
   "sideEffects": [
     "*.css"
