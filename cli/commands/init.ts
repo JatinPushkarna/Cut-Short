@@ -1,7 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import prompts from "prompts";
-import { PROJECTS_ROOT, projectDir, slugify } from "../lib/project";
+import {
+  campaignDir,
+  imagesDir,
+  projectDir,
+  scriptDir,
+  sfxDir,
+  slugify,
+  srtDir,
+  videoDir,
+} from "../lib/project";
 
 type Answers = {
   projectName: string;
@@ -104,18 +113,26 @@ export async function initCommand(): Promise<void> {
   const dir = projectDir(slug);
 
   if (fs.existsSync(dir)) {
-    console.error(`\nA project already exists at projects/${slug} -- pick a different name.`);
+    console.error(`\nA project already exists at public/Projects/${slug} -- pick a different name.`);
     process.exit(1);
   }
 
-  fs.mkdirSync(PROJECTS_ROOT, { recursive: true });
-  fs.mkdirSync(dir);
+  // One project, one folder: media (Assets/) and plan/reference material
+  // (Script/, SRT/, Campaign/) all live under the same public/Projects/<slug>
+  // root -- see cli/lib/project.ts for why this has to be under public/.
+  fs.mkdirSync(videoDir(slug), { recursive: true });
+  fs.mkdirSync(imagesDir(slug), { recursive: true });
+  fs.mkdirSync(sfxDir(slug), { recursive: true });
+  fs.mkdirSync(scriptDir(slug), { recursive: true });
+  fs.mkdirSync(srtDir(slug), { recursive: true });
+  fs.mkdirSync(campaignDir(slug), { recursive: true });
 
   const objectiveMd = buildObjectiveMd(answers, { videoAbsPath, scriptAbsPath });
-  fs.writeFileSync(path.join(dir, "objective.md"), objectiveMd);
+  fs.writeFileSync(path.join(campaignDir(slug), "objective.md"), objectiveMd);
 
-  console.log(`\nProject created: projects/${slug}/`);
-  console.log(`  - objective.md written`);
+  console.log(`\nProject created: public/Projects/${slug}/`);
+  console.log(`  - Campaign/objective.md written`);
+  console.log(`  - Assets/Video, Assets/Images, Assets/Music/SFX, Script/, SRT/ folders ready`);
   console.log(`  - source video referenced (not copied): ${videoAbsPath}`);
   if (scriptAbsPath) {
     console.log(`  - script referenced (not copied): ${scriptAbsPath}`);

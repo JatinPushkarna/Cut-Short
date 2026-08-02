@@ -6,13 +6,13 @@ Film releases **Aug 15, 2026**.
 
 ## Source of truth for the campaign plan
 
-- **`public/Projects/<slug>/<plan doc> - Session Handoff.md`**
-  and **`public/Projects/<slug>/<plan doc> Signal Log.html`**
+- **`public/Projects/<slug>/Campaign/<plan doc> - Session Handoff.md`**
+  and **`public/Projects/<slug>/Campaign/<plan doc> Signal Log.html`**
   are the current, correct campaign plan (goals, 5-beat format, full
   day-by-day calendar, per-platform copy, frame-verified corrections folded
   directly into each day's entry). Trust these — this doc is the only
   plan doc that should be treated as current.
-- **`public/Projects/<slug>/Promotion/_archive/`** holds superseded
+- **`public/Projects/<slug>/Campaign/Promotion/_archive/`** holds superseded
   planning docs (an earlier, differently-numbered/formatted plan that
   pre-dates the 5-beat pivot, plus a since-merged revisions doc). Kept for
   history only — do not use as a reference unless the user explicitly says
@@ -22,11 +22,12 @@ Film releases **Aug 15, 2026**.
 
 ## Source footage
 
-- `public/Projects/<slug>/<source video>.mp4` — the full film.
-  Landscape **16:9, 3840x2160, 23.976fps**. `.srt`/`.txt` alongside it are
-  the full transcript with timestamps.
-- `public/Projects/<slug>/<script>.pdf` — the screenplay
-  (scene numbers, stage directions, shot descriptions).
+- `public/Projects/<slug>/Assets/Video/<source video>.mp4` — the
+  full film. Landscape **16:9, 3840x2160, 23.976fps**. The full transcript
+  with timestamps (`.srt`/`.txt`) lives alongside it in
+  `public/Projects/<slug>/SRT/`, not in the same folder as the video.
+- `public/Projects/<slug>/Script/<script>.pdf` — the
+  screenplay (scene numbers, stage directions, shot descriptions).
 - Raw per-day exports/pre-cut clips live **outside this repo**, in
   `<external raw footage folder>\<date>\`. Copy in only the
   clips actually being used for a given day's composition.
@@ -44,7 +45,7 @@ timestamp range with ffmpeg and look at them.** One frame per second is
 usually enough to catch cuts; go denser near a suspected edit point.
 
 ```bash
-ffmpeg -y -ss <start_seconds> -i "public/Projects/<slug>/<source video>.mp4" \
+ffmpeg -y -ss <start_seconds> -i "public/Projects/<slug>/Assets/Video/<source video>.mp4" \
   -t <duration> -vf "fps=1" "<scratchpad>/f%02d.jpg"
 ```
 
@@ -105,7 +106,7 @@ composition's fps to the source — don't assume 30fps.
 - Quality settings for a high-fidelity master export: `setVideoImageFormat("png")`
   (lossless intermediate frames), `setCrf(12)`, `setX264Preset("slow")`.
 
-## Typography — always use `src/theme.ts`
+## Typography — always use `src/<project>/theme.ts`
 
 One shared font loader (`fontFamily`) and type scale (`TYPE.hook`,
 `.bridge`, `.caption`, `.reveal`, `.ctaTitle`, `.ctaSubtitle`,
@@ -147,15 +148,19 @@ that's reintroducing the exact variable the format was built to avoid.
 
 ## Reusable components
 
-- `src/CtaCard.tsx` — the standing close for every daily post (a
+- `src/<project>/CtaCard.tsx` — the standing close for every daily post (a
   "FOLLOW -- for the next one" style CTA + days-left counter). Takes a `daysLeft` prop.
   Reuse this rather than rebuilding the CTA per day.
 
 ## Asset organization
 
-- `public/Assets/Video/`, `public/Assets/Images/` — processed/final assets
-  actually used by a composition (Remotion's `staticFile()` only resolves
-  inside `public/`). Copy in only what a composition needs.
+- `public/Projects/<slug>/Assets/Video/`, `Assets/Images/`,
+  `Assets/Music/SFX/` — processed/final assets actually used by a
+  composition (Remotion's `staticFile()` only resolves inside `public/`).
+  Copy in only what a composition needs.
+- `public/Projects/<slug>/Script/`, `SRT/`, `Campaign/` — screenplay,
+  transcript/caption files, and campaign planning docs respectively. Not
+  loaded by any composition, reference material only.
 - Don't copy raw source footage into the repo until it's actually needed for
   a build — review/scratch work (frame extraction, rough cuts for review)
   can stay in the session scratchpad.

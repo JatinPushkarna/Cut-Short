@@ -29,7 +29,7 @@ This is a case study in a specific architectural question that most "AI tool" pr
 
 | Stage | What it does | Status |
 |---|---|---|
-| `init` | Interactive requirements gathering → project folder + `objective.md` | Shipped |
+| `init` | Interactive requirements gathering → scaffolds the project folder + `Campaign/objective.md` | Shipped |
 | `transcribe` | Runs `faster-whisper` on the source video, saves SRT + word timestamps | Roadmap |
 | `scan` | Text-searches the transcript for copy-matching moments, then frame-verifies each candidate | Roadmap |
 | `clip` | Confirms in/out points and crop, extracts the sub-clip | Roadmap |
@@ -40,19 +40,22 @@ This is a case study in a specific architectural question that most "AI tool" pr
 
 **The rendering engine is already real and already shipping output**, independent of the CLI orchestration above: a repeatable 5-beat structure (hook → bridge → video → reveal → CTA), a shared typography/component library so no clip re-implements styling from scratch, `OffthreadVideo` + a separate `<Audio>` tag (chosen deliberately after a browser-decoded `<Video>` proved unreliable against native 4K source), multi-speaker intercut support within a single continuously-extracted clip (per-segment `objectPosition` crops, one continuous audio track underneath, no re-exporting per speaker), and a punch-zoom effect that lands on a specific payoff frame instead of a generic hold. The CLI's `build`/`render` stages will wire into this engine directly, not replace it.
 
-**Data model — two gitignored roots, one shared slug per project:**
+**Data model — one gitignored root per project:**
 
 ```
-projects/<slug>/           objective.md, transcript, plan docs (plain data)
-public/projects/<slug>/    Remotion-referenceable media (staticFile() only resolves inside public/)
+public/Projects/<slug>/
+  Assets/Video/, Assets/Images/, Assets/Music/SFX/    Remotion-referenceable media (staticFile() only resolves inside public/)
+  Script/                                             screenplay reference
+  SRT/                                                transcript/caption files
+  Campaign/                                           objective.md + campaign planning docs
 ```
 
-Both generated at runtime, both gitignored — this repo ships the tool, not anyone's source footage.
+Everything a project needs lives in this one gitignored tree — generated at runtime, this repo ships the tool, not anyone's source footage.
 
 ## 2. Features
 
 **Shipped:**
-- `cutshort init` — interactive requirements gathering (objective, platforms, campaign length, script/video paths) → a project folder with a formatted `objective.md`. Source files are referenced by absolute path, never copied — duplicating multi-gigabyte source video costs real time and disk space for zero processing benefit.
+- `cutshort init` — interactive requirements gathering (objective, platforms, campaign length, script/video paths) → scaffolds the full `public/Projects/<slug>/` tree (`Assets/Video`, `Assets/Images`, `Assets/Music/SFX`, `Script/`, `SRT/`, `Campaign/`) and writes a formatted `Campaign/objective.md`. Source files are referenced by absolute path, never copied — duplicating multi-gigabyte source video costs real time and disk space for zero processing benefit.
 - The 5-beat Remotion rendering template and its full shared component library
 - Frame-accurate crop/timing decisions as a hard rule — every cut, crop, and timing call gets checked against real extracted frames before it's locked, never inferred from a transcript alone
 - Post-render self-verification — every render gets frames pulled from the *actual output file* and inspected, on the principle that a clean render log is not proof anything actually worked
