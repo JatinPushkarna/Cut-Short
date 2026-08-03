@@ -50,9 +50,23 @@ decision: extract actual frames from the source video at that timestamp
 range with ffmpeg and look at them.** One frame per second is usually
 enough to catch cuts; go denser near a suspected edit point.
 
+**Extract at a capped resolution (~720p), not full 4K.** Claude's vision
+pipeline already downsizes large images to a fixed internal token budget
+that's below native 4K anyway — sending full-resolution frames pays for
+pixels that get thrown away before the model ever sees them. 720p is
+still plenty for what frame-verification actually needs (who's on screen,
+cut boundaries, mouth movement for speaker ID, rough face position for
+crop math); only re-pull a specific frame at full res if something needs
+pixel-level precision (fine hairline crop edges, small burned-in text).
+When checking many frames from the same window, batch them into one
+contact-sheet image (a grid, via ffmpeg's `tile` filter or a quick
+compositing step) instead of one `Read` call per frame — this is what
+actually drives token cost up in practice: dozens of individual
+single-frame reads while binary-searching an exact cut point.
+
 ```bash
 ffmpeg -y -ss <start_seconds> -i "<source video path>" \
-  -t <duration> -vf "fps=1" "<scratchpad>/f%02d.jpg"
+  -t <duration> -vf "fps=1,scale=-1:720" "<scratchpad>/f%02d.jpg"
 ```
 
 Then `Read` the frames before making a creative call. This discipline
@@ -130,8 +144,13 @@ push/zoom instead of a static frame).
 
 ## Transcription
 
-`faster-whisper` is installed via `py -m pip` (not a project npm
-dependency). Models are cached locally (`base`, `medium`, `large-v3` — not
-`small`); use `WhisperModel(<size>, device="cpu", compute_type="int8",
+`cutshort transcribe <slug>` (`cli/commands/transcribe.ts` +
+`cli/lib/transcribe.py`) wraps `faster-whisper`, installed via `py -m pip`
+(not a project npm dependency, called via a Python subprocess). Models are
+cached locally (`base`, `medium`, `large-v3` — not `small`); the command
+runs `WhisperModel(<size>, device="cpu", compute_type="int8",
 local_files_only=True)` with a cached size to avoid a network call that can
-fail in this environment.
+fail in this environment, and rejects an uncached `--model` value before
+ever shelling out to Python. Writes `SRT/<video basename>.srt` and
+`SRT/<video basename>.words.json` (word-level timestamps) into the
+project's `SRT/` folder.
