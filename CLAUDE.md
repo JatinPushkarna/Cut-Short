@@ -5,6 +5,18 @@ hybrid workflow/agent pipeline (see `README.md` for the full architecture
 and pipeline stages). This file covers repo-specific conventions and
 gotchas for working on the tool itself.
 
+## Project-specific instructions: `CLAUDE.local.md`
+
+If a `CLAUDE.local.md` file exists alongside this one, Claude Code loads
+it automatically — that's where campaign/project-specific instructions
+belong (source of truth docs, exact footage paths, project-specific
+typography, brand rules). It's gitignored on purpose: this file
+(`CLAUDE.md`) stays generic and gets committed; `CLAUDE.local.md` stays
+local to whoever's running a given project and never ships in this repo's
+history.
+
+@CLAUDE.local.md
+
 ## Project data lives under `public/Projects/<slug>/`, not in `src/`
 
 Each project set up via `cutshort init` gets a self-contained, gitignored
