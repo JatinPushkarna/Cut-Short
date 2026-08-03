@@ -30,7 +30,7 @@ This is a case study in a specific architectural question that most "AI tool" pr
 | Stage | What it does | Status |
 |---|---|---|
 | `init` | Interactive requirements gathering → scaffolds the project folder + `Campaign/objective.md` | Shipped |
-| `transcribe` | Runs `faster-whisper` on the source video, saves SRT + word timestamps | Roadmap |
+| `transcribe` | Runs `faster-whisper` on the source video, saves SRT + word timestamps | Shipped |
 | `design` | Drafts the campaign design against a proven formula: the hook/bridge/reveal narrative, informed by the script (not just the transcript), plus per-platform title, description, and hashtags for YouTube Shorts, Instagram Reels, and TikTok | Roadmap |
 | `scan` | Text-searches the transcript for footage matching the campaign design, then frame-verifies each candidate | Roadmap |
 | `clip` | Confirms in/out points and crop, extracts the sub-clip | Roadmap |
@@ -57,13 +57,14 @@ Everything a project needs lives in this one gitignored tree — generated at ru
 ## 2. Features
 
 **Shipped:**
-- `cutshort init` — interactive requirements gathering (objective, platforms, campaign length, script/video paths) → scaffolds the full `public/Projects/<slug>/` tree (`Assets/Video`, `Assets/Images`, `Assets/Music/SFX`, `Script/`, `SRT/`, `Campaign/`) and writes a formatted `Campaign/objective.md`. Source files are referenced by absolute path, never copied — duplicating multi-gigabyte source video costs real time and disk space for zero processing benefit.
+- `cutshort init` — interactive requirements gathering (objective, platforms, campaign length, script/video paths) → scaffolds the full `public/Projects/<slug>/` tree (`Assets/Video`, `Assets/Images`, `Assets/Music/SFX`, `Script/`, `SRT/`, `Campaign/`) and writes a formatted `Campaign/objective.md` plus a machine-readable `Campaign/project.json` that later stages read back. Source files are referenced by absolute path, never copied — duplicating multi-gigabyte source video costs real time and disk space for zero processing benefit.
+- `cutshort transcribe <slug>` — runs `faster-whisper` (offline, `local_files_only=True` against an already-cached model size) on the project's source video, writes `SRT/<video>.srt` and `SRT/<video>.words.json` (word-level timestamps). Re-validates the source video/script paths from `project.json` still exist before running.
 - The 5-beat Remotion rendering template and its full shared component library
 - Frame-accurate crop/timing decisions as a hard rule — every cut, crop, and timing call gets checked against real extracted frames before it's locked, never inferred from a transcript alone
 - Post-render self-verification — every render gets frames pulled from the *actual output file* and inspected, on the principle that a clean render log is not proof anything actually worked
 
 **Roadmap:**
-- The `transcribe` → `verify` pipeline stages above
+- The `design` → `verify` pipeline stages above
 - `runClaudeTask` — the shared Claude Code agent-invocation layer those stages call into
 - Explicit speaker/on-screen-mismatch handling — a real, recurring case in intercut footage (the person talking isn't always who's in frame) that needs to be surfaced to a human, not silently resolved either way
 

@@ -5,11 +5,13 @@ import {
   campaignDir,
   imagesDir,
   projectDir,
+  projectJsonPath,
   scriptDir,
   sfxDir,
   slugify,
   srtDir,
   videoDir,
+  type ProjectData,
 } from "../lib/project";
 
 type Answers = {
@@ -130,8 +132,23 @@ export async function initCommand(): Promise<void> {
   const objectiveMd = buildObjectiveMd(answers, { videoAbsPath, scriptAbsPath });
   fs.writeFileSync(path.join(campaignDir(slug), "objective.md"), objectiveMd);
 
+  const projectData: ProjectData = {
+    slug,
+    projectName: answers.projectName,
+    objective: answers.objective,
+    fileDescription: answers.fileDescription,
+    platforms: answers.platforms,
+    isCampaign: answers.isCampaign,
+    campaignDays: answers.isCampaign ? answers.campaignDays : null,
+    videoPath: videoAbsPath,
+    scriptPath: scriptAbsPath,
+    createdAt: new Date().toISOString().slice(0, 10),
+  };
+  fs.writeFileSync(projectJsonPath(slug), JSON.stringify(projectData, null, 2));
+
   console.log(`\nProject created: public/Projects/${slug}/`);
   console.log(`  - Campaign/objective.md written`);
+  console.log(`  - Campaign/project.json written (machine-readable -- later stages read this back)`);
   console.log(`  - Assets/Video, Assets/Images, Assets/Music/SFX, Script/, SRT/ folders ready`);
   console.log(`  - source video referenced (not copied): ${videoAbsPath}`);
   if (scriptAbsPath) {

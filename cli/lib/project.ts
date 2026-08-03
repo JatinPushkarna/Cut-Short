@@ -66,3 +66,51 @@ export function requireProjectDir(slug: string): string {
   }
   return dir;
 }
+
+// Structured record of what `init` captured -- objective.md is the
+// human-readable version of the same answers, this is the machine-readable
+// one every later stage reads back (source paths, platforms, etc.) instead
+// of parsing markdown.
+export type ProjectData = {
+  slug: string;
+  projectName: string;
+  objective: string;
+  fileDescription: string;
+  platforms: string[];
+  isCampaign: boolean;
+  campaignDays: number | null;
+  videoPath: string;
+  scriptPath: string | null;
+  createdAt: string;
+};
+
+export function projectJsonPath(slug: string): string {
+  return path.join(campaignDir(slug), "project.json");
+}
+
+// Every later stage re-validates source paths still exist before running --
+// a moved/renamed/deleted source silently breaks a path reference otherwise.
+export function readProjectData(slug: string): ProjectData {
+  const jsonPath = projectJsonPath(slug);
+  if (!fs.existsSync(jsonPath)) {
+    console.error(`\nNo project.json found for ${slug} -- run \`cutshort init\` first.`);
+    process.exit(1);
+  }
+
+  const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as ProjectData;
+
+  if (!fs.existsSync(data.videoPath)) {
+    console.error(
+      `\nSource video no longer found at: ${data.videoPath}\nIt may have moved, been renamed, or been deleted since \`cutshort init\` ran.`
+    );
+    process.exit(1);
+  }
+  if (data.scriptPath && !fs.existsSync(data.scriptPath)) {
+    console.error(
+      `\nScript file no longer found at: ${data.scriptPath}\nIt may have moved, been renamed, or been deleted since \`cutshort init\` ran.`
+    );
+    process.exit(1);
+  }
+
+  return data;
+}
