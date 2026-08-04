@@ -48,9 +48,9 @@ function buildPrompt(phases: Phase[], feedback?: string): string {
       "line, e.g.:"
   );
   lines.push(
-    'SPEAKER_A: I don\'t want to bore you with the details.\n' +
-      "SPEAKER_B: Details never bore me. So, tell me how you're pitching this.\n" +
-      "SPEAKER_A: Um... well, I added a slide with... all the certifications we have and our track record."
+    "SPEAKER_A: <their exact real line from the SRT>\n" +
+      "SPEAKER_B: <their exact real line from the SRT>\n" +
+      "SPEAKER_A: <their exact real line from the SRT>"
   );
   lines.push(
     "Not a description of the scene -- the actual quoted lines, verbatim, in " +
