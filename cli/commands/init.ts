@@ -5,18 +5,19 @@ import {
   campaignDir,
   imagesDir,
   projectDir,
-  projectJsonPath,
   scriptDir,
   sfxDir,
   slugify,
   srtDir,
   videoDir,
+  writeProjectData,
   type ProjectData,
 } from "../lib/project";
 
 type Answers = {
   projectName: string;
   objective: string;
+  targetAudience: string;
   fileDescription: string;
   platforms: string[];
   isCampaign: boolean;
@@ -40,6 +41,11 @@ export async function initCommand(): Promise<void> {
         type: "text",
         name: "objective",
         message: "What's your objective? (e.g. grow followers, announce a release, drive traffic)",
+      },
+      {
+        type: "text",
+        name: "targetAudience",
+        message: "Who's the target audience? (e.g. demographics, interests, existing fans vs. cold audience)",
       },
       {
         type: "text",
@@ -136,6 +142,7 @@ export async function initCommand(): Promise<void> {
     slug,
     projectName: answers.projectName,
     objective: answers.objective,
+    targetAudience: answers.targetAudience,
     fileDescription: answers.fileDescription,
     platforms: answers.platforms,
     isCampaign: answers.isCampaign,
@@ -143,8 +150,9 @@ export async function initCommand(): Promise<void> {
     videoPath: videoAbsPath,
     scriptPath: scriptAbsPath,
     createdAt: new Date().toISOString().slice(0, 10),
+    template: null,
   };
-  fs.writeFileSync(projectJsonPath(slug), JSON.stringify(projectData, null, 2));
+  writeProjectData(slug, projectData);
 
   console.log(`\nProject created: public/Projects/${slug}/`);
   console.log(`  - Campaign/objective.md written`);
@@ -168,6 +176,9 @@ function buildObjectiveMd(
   lines.push("");
   lines.push("## Objective");
   lines.push(answers.objective || "_not provided_");
+  lines.push("");
+  lines.push("## Target audience");
+  lines.push(answers.targetAudience || "_not provided_");
   lines.push("");
   lines.push("## What the source file is about");
   lines.push(answers.fileDescription || "_not provided_");

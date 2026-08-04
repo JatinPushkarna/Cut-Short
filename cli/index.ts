@@ -2,6 +2,10 @@
 import { Command } from "commander";
 import { initCommand } from "./commands/init";
 import { transcribeCommand } from "./commands/transcribe";
+import { designPhasesCommand } from "./commands/design-phases";
+import { designTopicsCommand } from "./commands/design-topics";
+import { designContentStructureCommand } from "./commands/design-content-structure";
+import { templateCommand } from "./commands/template";
 
 const program = new Command();
 
@@ -22,5 +26,31 @@ program
   .description("Transcribe a project's source video with faster-whisper -> SRT + word-level timestamps.")
   .option("-m, --model <size>", "Whisper model size (base, medium, large-v3 -- must already be cached locally)", "medium")
   .action(transcribeCommand);
+
+const DESIGN_STEPS = ["phases", "topics", "content-structure"] as const;
+
+program
+  .command("design <step> <slug>")
+  .description(
+    `Draft the campaign design, one approved level at a time: ${DESIGN_STEPS.join(" -> ")}.`
+  )
+  .action(async (step: string, slug: string) => {
+    switch (step) {
+      case "phases":
+        return designPhasesCommand(slug);
+      case "topics":
+        return designTopicsCommand(slug);
+      case "content-structure":
+        return designContentStructureCommand(slug);
+      default:
+        console.error(`\nUnknown design step "${step}" -- must be one of: ${DESIGN_STEPS.join(", ")}`);
+        process.exit(1);
+    }
+  });
+
+program
+  .command("template <slug>")
+  .description("Choose the visual template (default or new) a project's compositions build against.")
+  .action(templateCommand);
 
 program.parse();

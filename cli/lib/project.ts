@@ -75,6 +75,7 @@ export type ProjectData = {
   slug: string;
   projectName: string;
   objective: string;
+  targetAudience: string;
   fileDescription: string;
   platforms: string[];
   isCampaign: boolean;
@@ -82,10 +83,17 @@ export type ProjectData = {
   videoPath: string;
   scriptPath: string | null;
   createdAt: string;
+  // Which src/templates/<name>/ this project's compositions are built
+  // against -- set by `cutshort template`, null until that's run.
+  template: string | null;
 };
 
 export function projectJsonPath(slug: string): string {
   return path.join(campaignDir(slug), "project.json");
+}
+
+export function writeProjectData(slug: string, data: ProjectData): void {
+  fs.writeFileSync(projectJsonPath(slug), JSON.stringify(data, null, 2));
 }
 
 // Every later stage re-validates source paths still exist before running --
