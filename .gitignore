@@ -29,3 +29,4 @@ CLAUDE.local.md
 # real skill, then these can go back to being local-only notes.
 .claude/skills/video-editing/
 .claude/skills/promo-copywriting/
+.remotion-bin/
