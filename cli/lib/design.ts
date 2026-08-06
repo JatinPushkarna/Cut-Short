@@ -2,6 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { campaignDir } from "./project";
 
+// Per-platform packaging -- YouTube's title (not caption) is what drives
+// discovery there, so it gets its own field distinct from the caption;
+// Instagram and TikTok don't have an equivalent title slot.
+export type PlatformCopy = {
+  youtube: { title: string; caption: string; hashtags: string[] };
+  instagram: { caption: string; hashtags: string[] };
+  tiktok: { caption: string; hashtags: string[] };
+};
+
 export type ContentStructure = {
   variant: string;
   hook: string;
@@ -11,7 +20,14 @@ export type ContentStructure = {
   // transcript" if nothing real fits. This is what `scan` will later
   // search the transcript for and what `clip` will cut from.
   content: string;
+  // Text/stamp overlay after the video beat -- optional since not every
+  // structure needs one spelled out yet (e.g. a flag-stamp verdict can
+  // carry the beat instead, decided at build time).
+  reveal?: string;
   cta: string;
+  // Optional for back-compat with structures saved before this field
+  // existed -- every newly-drafted structure should have it.
+  platforms?: PlatformCopy;
 };
 
 export type Topic = {
@@ -66,6 +82,18 @@ export function formatContent(content: string | undefined): string {
   return content;
 }
 
+// Indents every line after the first so a multi-line dialogue block reads
+// as nested under its "- Content:" bullet instead of as bare top-level
+// lines that visually break out of the list item.
+function indentContinuationLines(text: string, indent = "    "): string {
+  return text.split("\n").join(`\n${indent}`);
+}
+
+// Markdown table cells can't contain a raw "|" without breaking the row.
+function escapeTableCell(text: string): string {
+  return text.replace(/\|/g, "\\|");
+}
+
 // Human-readable mirror of design.json -- fully re-rendered from current
 // state after every step (phases/topics/content-structure), not manually
 // appended, so it can never drift out of sync if a step gets re-run.
@@ -91,8 +119,26 @@ export function renderDesignMarkdown(design: DesignData): string {
         lines.push(`**Variant ${structure.variant}**`);
         lines.push(`- Hook: ${structure.hook}`);
         lines.push(`- Bridge: ${structure.bridge}`);
-        lines.push(`- Content: ${formatContent(structure.content)}`);
+        lines.push(`- Content: ${indentContinuationLines(formatContent(structure.content))}`);
+        if (structure.reveal) {
+          lines.push(`- Reveal: ${structure.reveal}`);
+        }
         lines.push(`- CTA: ${structure.cta}`);
+        if (structure.platforms) {
+          const { youtube, instagram, tiktok } = structure.platforms;
+          lines.push("");
+          lines.push("| Platform | Title | Caption | Hashtags |");
+          lines.push("|---|---|---|---|");
+          lines.push(
+            `| YouTube | ${escapeTableCell(youtube.title)} | ${escapeTableCell(youtube.caption)} | ${escapeTableCell(youtube.hashtags.join(" "))} |`
+          );
+          lines.push(
+            `| Instagram | — | ${escapeTableCell(instagram.caption)} | ${escapeTableCell(instagram.hashtags.join(" "))} |`
+          );
+          lines.push(
+            `| TikTok | — | ${escapeTableCell(tiktok.caption)} | ${escapeTableCell(tiktok.hashtags.join(" "))} |`
+          );
+        }
         lines.push("");
       }
     }

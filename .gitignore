@@ -17,6 +17,10 @@ public
 # tool itself, so it stays out of this repo's history.
 src/<project>/
 
+# dogfood project -- same reasoning as above, this is
+# project content (built from its own design.json), not tool source code.
+src/<project>/
+
 # Project-specific Claude instructions -- CLAUDE.md (generic, committed)
 # @imports this when present. Campaign/project details belong here instead
 # of in CLAUDE.md, which stays generic on purpose.

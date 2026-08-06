@@ -5,7 +5,6 @@ import { transcribeCommand } from "./commands/transcribe";
 import { designPhasesCommand } from "./commands/design-phases";
 import { designTopicsCommand } from "./commands/design-topics";
 import { designContentStructureCommand } from "./commands/design-content-structure";
-import { templateCommand } from "./commands/template";
 
 const program = new Command();
 
@@ -47,10 +46,5 @@ program
         process.exit(1);
     }
   });
-
-program
-  .command("template <slug>")
-  .description("Choose the visual template (default or new) a project's compositions build against.")
-  .action(templateCommand);
 
 program.parse();

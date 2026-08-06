@@ -150,4 +150,129 @@ describe("renderDesignMarkdown", () => {
     expect(() => renderDesignMarkdown(design)).not.toThrow();
     expect(renderDesignMarkdown(design)).toContain("## Empty phase (p1)");
   });
+
+  it("renders per-platform copy when present", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                {
+                  variant: "A",
+                  hook: "h",
+                  bridge: "b",
+                  content: "c",
+                  cta: "follow",
+                  platforms: {
+                    youtube: { title: "YT Title", caption: "yt cap", hashtags: ["#a", "#b"] },
+                    instagram: { caption: "ig cap", hashtags: ["#c"] },
+                    tiktok: { caption: "tt cap", hashtags: ["#d", "#e"] },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const md = renderDesignMarkdown(design);
+
+    expect(md).toContain("| Platform | Title | Caption | Hashtags |");
+    expect(md).toContain("|---|---|---|---|");
+    expect(md).toContain("| YouTube | YT Title | yt cap | #a #b |");
+    expect(md).toContain("| Instagram | — | ig cap | #c |");
+    expect(md).toContain("| TikTok | — | tt cap | #d #e |");
+
+    // Table is preceded by a blank-line gap after the CTA bullet.
+    const ctaIndex = md.indexOf("- CTA: follow");
+    const blankLineAfterCta = md.slice(ctaIndex).split("\n")[1];
+    expect(blankLineAfterCta).toBe("");
+  });
+
+  it("escapes a raw pipe inside platform copy so it doesn't break the table", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                {
+                  variant: "A",
+                  hook: "h",
+                  bridge: "b",
+                  content: "c",
+                  cta: "follow",
+                  platforms: {
+                    youtube: { title: "A | B", caption: "yt", hashtags: ["#a"] },
+                    instagram: { caption: "ig", hashtags: ["#c"] },
+                    tiktok: { caption: "tt", hashtags: ["#d"] },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(renderDesignMarkdown(design)).toContain("A \\| B");
+  });
+
+  it("indents multi-line content so it nests under the Content bullet", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                { variant: "A", hook: "h", bridge: "b", content: "LINE_ONE\nLINE_TWO\nLINE_THREE", cta: "follow" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const md = renderDesignMarkdown(design);
+
+    expect(md).toContain("- Content: LINE_ONE\n    LINE_TWO\n    LINE_THREE");
+  });
+
+  it("omits platform lines when platforms is absent", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [{ variant: "A", hook: "h", bridge: "b", content: "c", cta: "follow" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(renderDesignMarkdown(design)).not.toContain("- YouTube:");
+  });
 });
