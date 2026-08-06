@@ -61,10 +61,24 @@ function makeProject(overrides: Partial<ProjectData> = {}): ProjectData {
 const designWithTopic: DesignData = {
   phases: [
     {
-      id: "awareness",
-      name: "Awareness",
+      id: "phase-1",
+      name: "Phase One",
       goal: "g",
-      topics: [{ id: "aw-not-now", title: "When Your Partner Tunes You Out" }],
+      topics: [{ id: "topic-a", title: "Generic Topic A" }],
+    },
+  ],
+};
+
+const designWithTwoTopics: DesignData = {
+  phases: [
+    {
+      id: "phase-1",
+      name: "Phase One",
+      goal: "g",
+      topics: [
+        { id: "topic-a", title: "Generic Topic A" },
+        { id: "topic-b", title: "Generic Topic B" },
+      ],
     },
   ],
 };
@@ -78,15 +92,15 @@ function makeProposal(overrides: Partial<{ templateDecision: any; contentStructu
     },
     contentStructuresByTopic: [
       {
-        topicId: "aw-not-now",
+        topicId: "topic-a",
         contentStructures: [
           {
-            variant: "shoulder-to-lean-on",
-            hook: "After a hard day at work, everyone just wants a shoulder to lean on.",
-            bridge: "She tried to.",
-            content: "SPEAKER_A: Sorry I'm late.",
-            reveal: "Not being heard is its own kind of lonely.",
-            cta: "FOLLOW -- for the next one.",
+            variant: "variant-a",
+            hook: "A generic hook line.",
+            bridge: "A generic bridge line.",
+            content: "SPEAKER_A: A generic line of dialogue.",
+            reveal: "A generic reveal line.",
+            cta: "FOLLOW -- more soon.",
             platforms: {
               youtube: { title: "YT Title", caption: "yt cap", hashtags: ["#ShortFilm"] },
               instagram: { caption: "ig cap", hashtags: ["#IndieFilm"] },
@@ -184,22 +198,22 @@ describe("designContentStructureCommand", () => {
       makeProposal({
         templateDecision: {
           action: "new",
-          templateSlug: "shoulder-lean",
+          templateSlug: "new-template",
           reasoning: "no existing template fits this tone",
-          newTemplateBrief: "# Shoulder Lean -- template brief\n\n...",
+          newTemplateBrief: "# New Template -- template brief\n\n...",
         },
       })
     );
 
     await designContentStructureCommand(slug);
 
-    const expectedDir = path.resolve(process.cwd(), "src", "templates", "shoulder-lean");
+    const expectedDir = path.resolve(process.cwd(), "src", "templates", "new-template");
     expect(mkdirSyncMock).toHaveBeenCalledWith(expectedDir, { recursive: true });
     expect(writeFileSyncMock).toHaveBeenCalledWith(
       path.join(expectedDir, "brief.md"),
-      expect.stringContaining("# Shoulder Lean -- template brief")
+      expect.stringContaining("# New Template -- template brief")
     );
-    expect(writeProjectDataMock).toHaveBeenCalledWith(slug, expect.objectContaining({ template: "shoulder-lean" }));
+    expect(writeProjectDataMock).toHaveBeenCalledWith(slug, expect.objectContaining({ template: "new-template" }));
   });
 
   it("on 'new', errors out instead of overwriting an existing template folder", async () => {
@@ -236,8 +250,8 @@ describe("designContentStructureCommand", () => {
     const savedDesign = saveDesignDataMock.mock.calls[0][1] as DesignData;
     const topic = savedDesign.phases[0].topics![0];
     expect(topic.contentStructures).toHaveLength(1);
-    expect(topic.contentStructures![0].variant).toBe("shoulder-to-lean-on");
-    expect(topic.contentStructures![0].reveal).toBe("Not being heard is its own kind of lonely.");
+    expect(topic.contentStructures![0].variant).toBe("variant-a");
+    expect(topic.contentStructures![0].reveal).toBe("A generic reveal line.");
   });
 
   it("preserves per-platform copy through to the saved design data", async () => {
@@ -267,5 +281,81 @@ describe("designContentStructureCommand", () => {
     expect(prompt).toContain("Instagram");
     expect(prompt).toContain("TikTok");
     expect(prompt).toContain("literal language for what it does");
+  });
+
+  it("requires frame extraction before finalizing content (allowFrameVerification: true)", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(designWithTopic);
+    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+
+    await designContentStructureCommand(slug);
+
+    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    expect(prompt).toContain("you must pull real frames from the source video");
+    expect(prompt).toContain("ffmpeg");
+    expect(prompt).not.toContain("Do NOT claim something is 'frame-verified'");
+  });
+
+  it("embeds the literal, unambiguous project directory path for frame output", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(designWithTopic);
+    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+
+    await designContentStructureCommand(slug);
+
+    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    expect(prompt).toContain(`/projects/${slug}/.frame-check`);
+    expect(prompt).not.toContain("<project directory>");
+  });
+
+  it("scopes the prompt to a single topic when topicId is given", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(structuredClone(designWithTwoTopics));
+    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+
+    await designContentStructureCommand(slug, "topic-b");
+
+    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    expect(prompt).toContain("topic-b");
+    expect(prompt).toContain("Generic Topic B");
+    expect(prompt).not.toContain("topic-a");
+    expect(prompt).not.toContain("Generic Topic A");
+  });
+
+  it("does not touch other topics' already-saved data when scoped to one topic", async () => {
+    const design = structuredClone(designWithTwoTopics);
+    design.phases[0].topics![0].contentStructures = [
+      { variant: "existing", hook: "h", bridge: "b", content: "c", cta: "cta" },
+    ];
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(design);
+    runClaudeTaskJsonMock.mockReturnValue(
+      makeProposal({
+        contentStructuresByTopic: [
+          {
+            topicId: "topic-b",
+            contentStructures: [{ variant: "new-one", hook: "h2", bridge: "b2", content: "c2", cta: "cta2" }],
+          },
+        ],
+      })
+    );
+
+    await designContentStructureCommand(slug, "topic-b");
+
+    const savedDesign = saveDesignDataMock.mock.calls[0][1] as DesignData;
+    const [topicA, topicB] = savedDesign.phases[0].topics!;
+    expect(topicA.contentStructures).toEqual([
+      { variant: "existing", hook: "h", bridge: "b", content: "c", cta: "cta" },
+    ]);
+    expect(topicB.contentStructures![0].variant).toBe("new-one");
+  });
+
+  it("exits if the scoped topic id doesn't exist", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(designWithTopic);
+
+    await expect(designContentStructureCommand(slug, "does-not-exist")).rejects.toThrow("process.exit(1)");
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('"does-not-exist" not found'));
+    expect(runClaudeTaskJsonMock).not.toHaveBeenCalled();
   });
 });

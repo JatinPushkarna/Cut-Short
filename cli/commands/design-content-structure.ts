@@ -6,7 +6,15 @@ import { runClaudeTaskJson } from "../lib/claude-task";
 import { projectDir, readProjectData, requireProjectDir, writeProjectData } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 
-function buildPrompt(phases: Phase[], currentTemplate: string | null, feedback?: string): string {
+// Exported so a scripted/manual validation run can call the exact same
+// prompt-building logic the real command uses, without going through
+// reviewLoop's interactive terminal prompt (which needs a real TTY).
+export function buildPrompt(
+  phases: Phase[],
+  currentTemplate: string | null,
+  projectDirPath: string,
+  feedback?: string
+): string {
   const phasesWithTopics = phases.map(({ id, name, goal, topics }) => ({
     phaseId: id,
     phaseName: name,
@@ -34,7 +42,7 @@ function buildPrompt(phases: Phase[], currentTemplate: string | null, feedback?:
   lines.push("");
   lines.push("Read Campaign/objective.md (target audience, objective, platforms) in the project directory.");
   lines.push("");
-  lines.push(groundingInstructions());
+  lines.push(groundingInstructions({ allowFrameVerification: true, projectDirPath }));
   lines.push("");
   lines.push(
     "For each topic, propose 2-3 DIFFERENT content structure variants -- each a " +
@@ -195,7 +203,7 @@ function render(proposal: ContentStructureProposal): string {
   return [templateLines.join("\n"), "", topicLines].join("\n");
 }
 
-export async function designContentStructureCommand(slug: string): Promise<void> {
+export async function designContentStructureCommand(slug: string, topicId?: string): Promise<void> {
   requireProjectDir(slug);
   const project = readProjectData(slug);
   const design = readDesignData(slug);
@@ -206,10 +214,24 @@ export async function designContentStructureCommand(slug: string): Promise<void>
     process.exit(1);
   }
 
+  // Scoping to one topic only narrows what's SENT to the model -- the merge
+  // step below always writes back against the full, unfiltered design, so a
+  // scoped run can never touch another topic's already-saved data.
+  let promptPhases = design!.phases;
+  if (topicId) {
+    promptPhases = design!.phases
+      .map((phase) => ({ ...phase, topics: (phase.topics ?? []).filter((t) => t.id === topicId) }))
+      .filter((phase) => phase.topics.length > 0);
+    if (promptPhases.length === 0) {
+      console.error(`\nTopic "${topicId}" not found for ${slug}.`);
+      process.exit(1);
+    }
+  }
+
   const proposal = await reviewLoop(
     (feedback) =>
       runClaudeTaskJson<ContentStructureProposal>(
-        buildPrompt(design!.phases, project.template, feedback),
+        buildPrompt(promptPhases, project.template, projectDir(slug), feedback),
         projectDir(slug)
       ),
     render

@@ -33,14 +33,15 @@ program
   .description(
     `Draft the campaign design, one approved level at a time: ${DESIGN_STEPS.join(" -> ")}.`
   )
-  .action(async (step: string, slug: string) => {
+  .option("--topic <id>", "Scope to a single topic id (content-structure step only)")
+  .action(async (step: string, slug: string, options: { topic?: string }) => {
     switch (step) {
       case "phases":
         return designPhasesCommand(slug);
       case "topics":
         return designTopicsCommand(slug);
       case "content-structure":
-        return designContentStructureCommand(slug);
+        return designContentStructureCommand(slug, options.topic);
       default:
         console.error(`\nUnknown design step "${step}" -- must be one of: ${DESIGN_STEPS.join(", ")}`);
         process.exit(1);
