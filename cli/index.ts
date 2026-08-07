@@ -6,6 +6,7 @@ import { designPhasesCommand } from "./commands/design-phases";
 import { designTopicsCommand } from "./commands/design-topics";
 import { designContentStructureCommand } from "./commands/design-content-structure";
 import { designEditCopyCommand } from "./commands/design-edit-copy";
+import { designBuildCommand } from "./commands/design-build";
 
 const program = new Command();
 
@@ -27,14 +28,14 @@ program
   .option("-m, --model <size>", "Whisper model size (base, medium, large-v3 -- must already be cached locally)", "medium")
   .action(transcribeCommand);
 
-const DESIGN_STEPS = ["phases", "topics", "content-structure", "edit-copy"] as const;
+const DESIGN_STEPS = ["phases", "topics", "content-structure", "edit-copy", "build"] as const;
 
 program
   .command("design <step> <slug>")
   .description(
     `Draft the campaign design, one approved level at a time: ${DESIGN_STEPS.join(" -> ")}.`
   )
-  .option("--topic <id>", "Scope to a single topic id (content-structure: optional scope; edit-copy: required)")
+  .option("--topic <id>", "Scope to a single topic id (content-structure: optional scope; edit-copy/build: required)")
   .action(async (step: string, slug: string, options: { topic?: string }) => {
     switch (step) {
       case "phases":
@@ -49,6 +50,12 @@ program
           process.exit(1);
         }
         return designEditCopyCommand(slug, options.topic);
+      case "build":
+        if (!options.topic) {
+          console.error(`\n\`design build\` needs --topic <id> -- it operates on one locked topic at a time.`);
+          process.exit(1);
+        }
+        return designBuildCommand(slug, options.topic);
       default:
         console.error(`\nUnknown design step "${step}" -- must be one of: ${DESIGN_STEPS.join(", ")}`);
         process.exit(1);

@@ -18,14 +18,15 @@ export type PlatformCopy = {
 // the originally-planned separate `scan`/`clip` stages.
 export type EditCopyRow = {
   timestamp: string;
-  // e.g. "CUT IN -- \"Glasses?\"", "CUT OUT" -- what happens at this timestamp.
+  // e.g. "CUT IN -- \"<line>\"", "CUT OUT" -- what happens at this timestamp.
   action: string;
   // e.g. "hard cut" | "whip-pan" | "glitch" -- how this cut lands, if it's
   // not a plain hard cut.
   transition?: string;
-  // e.g. "punch-zoom on the speaker" | "crop shift, 35% center" -- matches the
-  // real patterns already used in an existing project composition (per-segment
-  // objectPosition, a punch-zoom interpolate on the payoff line).
+  // e.g. "punch-zoom on <speaker>" | "crop shift, 35% center" -- matches
+  // patterns already used in a project's own existing compositions, if any
+  // exist (per-segment objectPosition, a punch-zoom interpolate on the
+  // payoff line), not hypothetical ones.
   effect?: string;
 };
 
@@ -35,6 +36,16 @@ export type EditCopy = {
   // instead of re-verifying frames from scratch.
   sourceVideo: string;
   rows: EditCopyRow[];
+};
+
+// Real files `design build` wrote for this structure -- lets a later `render`
+// step (or a human reading design.md) find the composition and the physical
+// assets it depends on without having to remember or reconstruct the paths.
+export type BuildOutput = {
+  compositionFile: string;
+  extractedClip: string;
+  // null when the locked template has no still-hook beat to generate one for.
+  hookStill: string | null;
 };
 
 export type ContentStructure = {
@@ -57,6 +68,9 @@ export type ContentStructure = {
   // Set by `design edit-copy`, after this structure and the project's
   // template are both already locked. Absent until that stage runs.
   editCopy?: EditCopy;
+  // Set by `design build`, after editCopy is locked. Absent until that
+  // stage runs.
+  build?: BuildOutput;
 };
 
 export type Topic = {
@@ -179,6 +193,12 @@ export function renderDesignMarkdown(design: DesignData): string {
               `| ${escapeTableCell(row.timestamp)} | ${escapeTableCell(row.action)} | ${escapeTableCell(row.transition ?? "—")} | ${escapeTableCell(row.effect ?? "—")} |`
             );
           }
+        }
+        if (structure.build) {
+          lines.push("");
+          lines.push(`- Composition: ${structure.build.compositionFile}`);
+          lines.push(`- Extracted clip: ${structure.build.extractedClip}`);
+          lines.push(`- Hook still: ${structure.build.hookStill ?? "not needed for this template"}`);
         }
         lines.push("");
       }

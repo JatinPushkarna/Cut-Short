@@ -20,6 +20,7 @@ export async function readTemplateManifest(templateSlug: string): Promise<Templa
 }
 
 export function buildEditCopyPrompt(
+  slug: string,
   topic: Topic,
   structure: { hook: string; bridge: string; content: string; reveal?: string; cta: string },
   templateManifest: TemplateManifest,
@@ -68,12 +69,27 @@ export function buildEditCopyPrompt(
   );
   lines.push("");
   lines.push(
-    "Propose the cut list: for each cut, a timestamp and an action (what happens -- e.g. " +
-      '\'CUT IN -- "<line>"\', \'CUT OUT\'), and where relevant a transition (hard cut, whip-pan, ' +
-      "glitch) and an effect (punch-zoom on a payoff line, a crop/objectPosition shift to keep a " +
-      "speaker in frame). Match real patterns already used in this codebase " +
-      "(an existing project composition -- per-segment objectPosition crop shifts, a punch-zoom " +
-      "interpolate on the payoff line), not hypothetical ones."
+    "Propose the cut list -- get the shot COUNT right, not just the timing. Don't assume " +
+      "dialogue-line boundaries match camera-shot boundaries: if the real footage is a " +
+      "two-camera OTS setup that cuts back and forth multiple times within what looks like " +
+      "one continuous line of dialogue, that's multiple rows, one per real shot change, not " +
+      "one row spanning all of it. Verify this from the actual frames, don't infer it from " +
+      "the transcript or from how many lines of dialogue there are."
+  );
+  lines.push(
+    "For each row's effect, when it involves cropping/positioning a speaker, give an EXACT " +
+      'numeric objectPosition value (e.g. "objectPosition: 15% 50%"), not a vague description ' +
+      'like "shifted toward X" -- compute it from where the subject actually sits in the frame ' +
+      "you're looking at. A vague description can't be built from directly; a wrong number is " +
+      "at least checkable and fixable later. Percentages are resolution-independent, so the " +
+      "capped inspection frames you're already pulling are precise enough for this -- you do " +
+      "not need the final extracted clip to compute it."
+  );
+  lines.push(
+    `If src/${slug}/ already has a composition built from an earlier ` +
+      "\`design build\` run, match the real patterns it uses (per-segment objectPosition crop " +
+      "shifts, a punch-zoom interpolate) rather than inventing hypothetical ones -- if nothing's " +
+      "been built yet, standard techniques like those are still the right vocabulary to reach for."
   );
   if (feedback) {
     lines.push("");
@@ -151,7 +167,7 @@ export async function designEditCopyCommand(slug: string, topicId: string): Prom
   const proposal = await reviewLoop(
     (feedback) =>
       runClaudeTaskJson<EditCopyProposal>(
-        buildEditCopyPrompt(foundTopic!, structure, templateManifest, projectDir(slug), feedback),
+        buildEditCopyPrompt(slug, foundTopic!, structure, templateManifest, projectDir(slug), feedback),
         projectDir(slug)
       ),
     render
@@ -161,5 +177,5 @@ export async function designEditCopyCommand(slug: string, topicId: string): Prom
 
   saveDesignData(slug, design!);
   console.log(`\nSaved edit copy for topic ${topicId} to Campaign/design.json and Campaign/design.md`);
-  console.log(`\nNext: build stage (not yet implemented)\n`);
+  console.log(`\nNext: run \`npm run cutshort -- design build ${slug} --topic ${topicId}\`\n`);
 }

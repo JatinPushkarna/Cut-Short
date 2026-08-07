@@ -337,4 +337,63 @@ describe("renderDesignMarkdown", () => {
 
     expect(renderDesignMarkdown(design)).not.toContain("Edit copy (");
   });
+
+  it("renders build output paths when present, including a null hook still", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                {
+                  variant: "A",
+                  hook: "h",
+                  bridge: "b",
+                  content: "c",
+                  cta: "follow",
+                  build: {
+                    compositionFile: "src/example-project/Example.tsx",
+                    extractedClip: "public/Projects/example-project/Assets/Video/t1.mp4",
+                    hookStill: null,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const md = renderDesignMarkdown(design);
+
+    expect(md).toContain("- Composition: src/example-project/Example.tsx");
+    expect(md).toContain("- Extracted clip: public/Projects/example-project/Assets/Video/t1.mp4");
+    expect(md).toContain("- Hook still: not needed for this template");
+  });
+
+  it("omits build output when absent", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [{ variant: "A", hook: "h", bridge: "b", content: "c", cta: "follow" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(renderDesignMarkdown(design)).not.toContain("- Composition:");
+  });
 });

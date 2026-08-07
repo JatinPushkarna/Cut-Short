@@ -164,4 +164,30 @@ describe("designEditCopyCommand", () => {
     const savedDesign = saveDesignDataMock.mock.calls[0][1] as DesignData;
     expect(savedDesign.phases[0].topics![0].contentStructures![0].editCopy).toEqual(editCopy);
   });
+
+  it("points at this project's own src/<slug>/ for pattern reference, not a hardcoded private project", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(makeDesign());
+    runClaudeTaskJsonMock.mockReturnValue({ editCopy: { sourceVideo: "/video.mp4", rows: [] } });
+
+    await designEditCopyCommand(slug, "topic-a");
+
+    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    expect(prompt).toContain(`src/${slug}/`);
+    expect(prompt).not.toContain("Lie Detector");
+    expect(prompt).not.toContain("Day8");
+  });
+
+  it("requires exact numeric objectPosition values and real shot-count verification", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(makeDesign());
+    runClaudeTaskJsonMock.mockReturnValue({ editCopy: { sourceVideo: "/video.mp4", rows: [] } });
+
+    await designEditCopyCommand(slug, "topic-a");
+
+    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    expect(prompt).toContain("EXACT numeric objectPosition value");
+    expect(prompt).toContain("Don't assume dialogue-line boundaries match camera-shot boundaries");
+    expect(prompt).toContain("A vague description can't be built from directly");
+  });
 });
