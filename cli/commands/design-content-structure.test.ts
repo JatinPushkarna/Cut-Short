@@ -167,6 +167,21 @@ describe("designContentStructureCommand", () => {
     expect(prompt).toContain("This project currently uses: default");
   });
 
+  it("decides the template before drafting copy, not after (gate, not parallel output)", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(designWithTopic);
+    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+
+    await designContentStructureCommand(slug);
+
+    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    const templateGateIndex = prompt.indexOf("Before drafting any copy, decide which visual template");
+    const copyDraftIndex = prompt.indexOf("Now propose 2-3 DIFFERENT content structure variants");
+    expect(templateGateIndex).toBeGreaterThan(-1);
+    expect(copyDraftIndex).toBeGreaterThan(-1);
+    expect(templateGateIndex).toBeLessThan(copyDraftIndex);
+  });
+
   it("says 'no template yet' in the prompt when project.template is null", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: null }));
     readDesignDataMock.mockReturnValue(designWithTopic);

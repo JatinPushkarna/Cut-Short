@@ -45,8 +45,56 @@ export function buildPrompt(
   lines.push(groundingInstructions({ allowFrameVerification: true, projectDirPath }));
   lines.push("");
   lines.push(
-    "For each topic, propose 2-3 DIFFERENT content structure variants -- each a " +
-      "full hook/bridge/content/reveal/cta breakdown. These are explicitly meant " +
+    "Before drafting any copy, decide which visual template this content " +
+      "should build against -- this is a gate, not a parallel output; the " +
+      "template you choose constrains what a good cut even looks like, so it " +
+      "has to be settled first:"
+  );
+  lines.push(
+    "1. Read src/templates/contract.ts (repo root, not the project directory) -- " +
+      "the full registry of available components and prop shapes any template " +
+      "can be built from."
+  );
+  lines.push(
+    "2. Read every src/templates/*/manifest.ts that currently exists (name, " +
+      `description, beats, components). This project currently uses: ${currentTemplate ?? "no template yet"}.`
+  );
+  lines.push(
+    "3. If an existing template fits this content well, reuse it. Default to " +
+      "keeping the project's current template unless there's a clear structural " +
+      "mismatch -- a new template is a real cost (breaks visual consistency " +
+      "across the campaign, needs a follow-up build pass for the actual " +
+      "component code), not a free choice to make per batch of content. If no " +
+      "template is set yet for this project, prefer reusing 'default' unless " +
+      "this content clearly needs something the 5-beat structure can't do -- " +
+      "bias toward the proven format, not a blank-slate decision every time."
+  );
+  lines.push(
+    "4. Only if nothing existing genuinely fits, propose a new template: pick " +
+      "components from contract.ts's registry, define a beat order, and write a " +
+      "structural brief covering beat structure, hook style, font, background " +
+      "treatment, what's reused vs. built new, and any other structural rule -- " +
+      "the same kind of brief a human would have written by hand."
+  );
+  lines.push("");
+  lines.push(
+    "The template you just chose constrains what a good cut looks like, so " +
+      "keep it in mind while drafting the content below:"
+  );
+  lines.push(
+    "- If its HOOK is a separate still/black beat before any footage plays " +
+      "(e.g. 'default'), the video's in-point is unconstrained by overlay " +
+      "legibility -- pick wherever the real scene starts."
+  );
+  lines.push(
+    "- If its HOOK overlays text on real footage from frame 0 (e.g. " +
+      "'3-beats'), the opening frames themselves must work as a text-overlay " +
+      "background -- factor that into which real dialogue window you pick."
+  );
+  lines.push("");
+  lines.push(
+    "Now propose 2-3 DIFFERENT content structure variants -- each a full " +
+      "hook/bridge/content/reveal/cta breakdown. These are explicitly meant " +
       "as experiments to test against the audience (different hook framings, " +
       "different misdirects), not near-duplicates of each other."
   );
@@ -92,37 +140,6 @@ export function buildPrompt(
     "- Use the same CTA line and days-left counter across all three and across " +
       "variants -- don't reinvent the CTA per topic or per platform, " +
       "recognizable is the point."
-  );
-  lines.push("");
-  lines.push(
-    "Before finalizing this content, decide which visual template it should " +
-      "build against:"
-  );
-  lines.push(
-    "1. Read src/templates/contract.ts (repo root, not the project directory) -- " +
-      "the full registry of available components and prop shapes any template " +
-      "can be built from."
-  );
-  lines.push(
-    "2. Read every src/templates/*/manifest.ts that currently exists (name, " +
-      `description, beats, components). This project currently uses: ${currentTemplate ?? "no template yet"}.`
-  );
-  lines.push(
-    "3. If an existing template fits this content well, reuse it. Default to " +
-      "keeping the project's current template unless there's a clear structural " +
-      "mismatch -- a new template is a real cost (breaks visual consistency " +
-      "across the campaign, needs a follow-up build pass for the actual " +
-      "component code), not a free choice to make per batch of content. If no " +
-      "template is set yet for this project, prefer reusing 'default' unless " +
-      "this content clearly needs something the 5-beat structure can't do -- " +
-      "bias toward the proven format, not a blank-slate decision every time."
-  );
-  lines.push(
-    "4. Only if nothing existing genuinely fits, propose a new template: pick " +
-      "components from contract.ts's registry, define a beat order, and write a " +
-      "structural brief covering beat structure, hook style, font, background " +
-      "treatment, what's reused vs. built new, and any other structural rule -- " +
-      "the same kind of brief a human would have written by hand."
   );
   if (feedback) {
     lines.push("");
@@ -269,5 +286,5 @@ export async function designContentStructureCommand(slug: string, topicId?: stri
   saveDesignData(slug, design!);
   console.log(`\nSaved content structures to Campaign/design.json and Campaign/design.md`);
   console.log(`\nUsing template: ${templateDecision.templateSlug}`);
-  console.log(`\nNext: run \`npm run cutshort -- scan ${slug}\`\n`);
+  console.log(`\nNext: run \`npm run cutshort -- design edit-copy ${slug} --topic <id>\`\n`);
 }

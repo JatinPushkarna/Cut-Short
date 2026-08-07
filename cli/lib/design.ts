@@ -11,14 +11,40 @@ export type PlatformCopy = {
   tiktok: { caption: string; hashtags: string[] };
 };
 
+// The precise cut list for a locked content structure's video beat --
+// produced by `design edit-copy`, which runs after both the content and
+// the template are locked (the template's beat structure determines what
+// a good cut even looks like, so it can't be decided earlier). Replaces
+// the originally-planned separate `scan`/`clip` stages.
+export type EditCopyRow = {
+  timestamp: string;
+  // e.g. "CUT IN -- \"Glasses?\"", "CUT OUT" -- what happens at this timestamp.
+  action: string;
+  // e.g. "hard cut" | "whip-pan" | "glitch" -- how this cut lands, if it's
+  // not a plain hard cut.
+  transition?: string;
+  // e.g. "punch-zoom on the speaker" | "crop shift, 35% center" -- matches the
+  // real patterns already used in an existing project composition (per-segment
+  // objectPosition, a punch-zoom interpolate on the payoff line).
+  effect?: string;
+};
+
+export type EditCopy = {
+  // Literal source video path, from project.json -- lets a later topic
+  // grep existing editCopy entries for an overlapping/reusable window
+  // instead of re-verifying frames from scratch.
+  sourceVideo: string;
+  rows: EditCopyRow[];
+};
+
 export type ContentStructure = {
   variant: string;
   hook: string;
   bridge: string;
   // The real dialogue itself -- verbatim, speaker-labeled lines from the
   // SRT transcript (not a paraphrase), or "NO MATCHING DIALOGUE FOUND in
-  // transcript" if nothing real fits. This is what `scan` will later
-  // search the transcript for and what `clip` will cut from.
+  // transcript" if nothing real fits. This is what `design edit-copy` later
+  // turns into a precise cut list.
   content: string;
   // Text/stamp overlay after the video beat -- optional since not every
   // structure needs one spelled out yet (e.g. a flag-stamp verdict can
@@ -28,6 +54,9 @@ export type ContentStructure = {
   // Optional for back-compat with structures saved before this field
   // existed -- every newly-drafted structure should have it.
   platforms?: PlatformCopy;
+  // Set by `design edit-copy`, after this structure and the project's
+  // template are both already locked. Absent until that stage runs.
+  editCopy?: EditCopy;
 };
 
 export type Topic = {
@@ -36,8 +65,8 @@ export type Topic = {
   description?: string;
   // Specifically how/why this topic serves its phase's stated goal -- not
   // a restatement of the goal. Lets a human see the reasoning at a glance,
-  // and lets later stages (content-structure, eventually scan/build) stay
-  // aligned with why a topic was picked, not just what it is.
+  // and lets later stages (content-structure, edit-copy, eventually build)
+  // stay aligned with why a topic was picked, not just what it is.
   reasoning?: string;
   contentStructures?: ContentStructure[];
 };
@@ -74,7 +103,7 @@ export function designMarkdownPath(slug: string): string {
 }
 
 // Flags a missing/no-match content field visibly, since that's the signal
-// a variant has nothing real behind it to hand off to `scan`.
+// a variant has nothing real behind it to hand off to `design edit-copy`.
 export function formatContent(content: string | undefined): string {
   if (!content || /no matching dialogue/i.test(content)) {
     return `⚠ NO REAL DIALOGUE MATCH -- ${content || "(missing)"}`;
@@ -138,6 +167,18 @@ export function renderDesignMarkdown(design: DesignData): string {
           lines.push(
             `| TikTok | — | ${escapeTableCell(tiktok.caption)} | ${escapeTableCell(tiktok.hashtags.join(" "))} |`
           );
+        }
+        if (structure.editCopy) {
+          lines.push("");
+          lines.push(`Edit copy (${structure.editCopy.sourceVideo}):`);
+          lines.push("");
+          lines.push("| Timestamp | Action | Transition | Effect |");
+          lines.push("|---|---|---|---|");
+          for (const row of structure.editCopy.rows) {
+            lines.push(
+              `| ${escapeTableCell(row.timestamp)} | ${escapeTableCell(row.action)} | ${escapeTableCell(row.transition ?? "—")} | ${escapeTableCell(row.effect ?? "—")} |`
+            );
+          }
         }
         lines.push("");
       }

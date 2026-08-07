@@ -273,6 +273,68 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    expect(renderDesignMarkdown(design)).not.toContain("- YouTube:");
+    expect(renderDesignMarkdown(design)).not.toContain("| YouTube");
+  });
+
+  it("renders an edit-copy cut table when present", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                {
+                  variant: "A",
+                  hook: "h",
+                  bridge: "b",
+                  content: "c",
+                  cta: "follow",
+                  editCopy: {
+                    sourceVideo: "/videos/source.mp4",
+                    rows: [
+                      { timestamp: "10:36.7", action: 'CUT IN -- "generic line"', transition: "hard cut" },
+                      { timestamp: "10:38.3", action: "CUT OUT", effect: "punch-zoom on speaker" },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const md = renderDesignMarkdown(design);
+
+    expect(md).toContain("Edit copy (/videos/source.mp4):");
+    expect(md).toContain("| Timestamp | Action | Transition | Effect |");
+    expect(md).toContain('| 10:36.7 | CUT IN -- "generic line" | hard cut | — |');
+    expect(md).toContain("| 10:38.3 | CUT OUT | — | punch-zoom on speaker |");
+  });
+
+  it("omits the edit-copy table when absent", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [{ variant: "A", hook: "h", bridge: "b", content: "c", cta: "follow" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(renderDesignMarkdown(design)).not.toContain("Edit copy (");
   });
 });
