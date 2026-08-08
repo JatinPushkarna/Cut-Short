@@ -171,9 +171,10 @@ function indentContinuationLines(text: string, indent = "    "): string {
   return text.split("\n").join(`\n${indent}`);
 }
 
-// Markdown table cells can't contain a raw "|" without breaking the row.
+// Markdown table cells can't contain raw pipes or line breaks without
+// breaking the row. Preserve multiline copy visually with HTML breaks.
 function escapeTableCell(text: string): string {
-  return text.replace(/\|/g, "\\|");
+  return text.replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
 }
 
 // Human-readable mirror of design.json -- fully re-rendered from current
