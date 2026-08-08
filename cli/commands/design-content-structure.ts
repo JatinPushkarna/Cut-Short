@@ -305,6 +305,7 @@ export async function designContentStructureCommand(
       entry.contentStructures.map((structure) => ({
         ...structure,
         generatedBy: agent,
+        approvedAt: new Date().toISOString(),
       })),
     ]),
   );

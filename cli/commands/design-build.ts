@@ -463,6 +463,7 @@ export async function designBuildCommand(
     hookStill: proposal.hookStill,
     quality: "proxy",
     generatedBy: options.agent ?? "claude",
+    approvedAt: new Date().toISOString(),
   };
 
   saveDesignData(slug, design!);

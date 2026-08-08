@@ -215,7 +215,11 @@ export async function designEditCopyCommand(
     render,
   );
 
-  structure.editCopy = { ...proposal.editCopy, generatedBy: agent };
+  structure.editCopy = {
+    ...proposal.editCopy,
+    generatedBy: agent,
+    approvedAt: new Date().toISOString(),
+  };
 
   saveDesignData(slug, design!);
   console.log(

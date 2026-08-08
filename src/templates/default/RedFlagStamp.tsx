@@ -48,7 +48,7 @@ export const RedFlagStamp: React.FC<RedFlagStampProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "black", justifyContent: "center", alignItems: "center" }}>
       {beepSfx && (
-        <Sequence from={0} durationInFrames={20}>
+        <Sequence durationInFrames={20}>
           <Audio src={staticFile(beepSrc)} volume={volume} />
         </Sequence>
       )}

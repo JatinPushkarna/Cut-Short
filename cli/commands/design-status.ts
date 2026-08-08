@@ -113,7 +113,7 @@ function auditFilesystem(slug: string, design: DesignData | null): string[] {
     }
   }
 
-  // 3. Rendered/ folder -- exact match, mis-named/stray, or untracked.
+  // 3. Rendered/ folder -- exact match (checked for staleness), mis-named/stray, or untracked.
   const renderedDirPath = renderedDir(slug);
   const seenRenderedTopicIds = new Set<string>();
   if (fs.existsSync(renderedDirPath)) {
@@ -121,6 +121,25 @@ function auditFilesystem(slug: string, design: DesignData | null): string[] {
       const exactTopicId = file.endsWith(".mp4") ? file.slice(0, -4) : null;
       if (exactTopicId && knownTopicIds.has(exactTopicId)) {
         seenRenderedTopicIds.add(exactTopicId);
+        // A render can exist at exactly the right path and still be stale --
+        // e.g. build proxy -> render (while still a proxy) -> finalize. The
+        // finalize step rewrites the composition file (a new clip reference)
+        // but never re-renders, so the old proxy-era render silently keeps
+        // passing an exact-name check unless it's compared against what the
+        // composition looks like now.
+        const compositionFile = knownCompositions.get(exactTopicId);
+        if (compositionFile && fs.existsSync(compositionFile)) {
+          const renderedMtime = fs.statSync(path.join(renderedDirPath, file)).mtimeMs;
+          const compositionMtime = fs.statSync(compositionFile).mtimeMs;
+          if (renderedMtime < compositionMtime) {
+            issues.push(
+              `STALE RENDER: "Rendered/${file}" is older than its composition file's last ` +
+                `change (rendered ${new Date(renderedMtime).toISOString()}, composition changed ` +
+                `${new Date(compositionMtime).toISOString()}) -- likely rendered before ` +
+                `\`design build --finalize\` (or a later edit) ran. Run \`cutshort render\` again.`,
+            );
+          }
+        }
         continue;
       }
       const matchingTopic = [...knownTopicIds].find((id) => file.startsWith(id));

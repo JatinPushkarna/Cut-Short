@@ -37,12 +37,16 @@ export type EditCopy = {
   // instead of re-verifying frames from scratch.
   sourceVideo: string;
   rows: EditCopyRow[];
-  // Which agent's proposal got approved through reviewLoop for this stage --
-  // lets `design status` show provenance per stage when a project switches
-  // agents mid-pipeline, and lets a filesystem audit tell "produced by a
-  // real reviewed run" apart from a record that was only ever hand-edited
-  // into design.json. Absent for structures locked before this field existed.
+  // Which agent's proposal was approved through reviewLoop for this stage,
+  // and when (ISO 8601, set the moment reviewLoop returns "approve"). This
+  // is a label + timestamp the CLI writes at approval time -- a paper
+  // trail, not proof of review: design.json is a plain, editable JSON
+  // file, so nothing stops a fabricated record from setting these same
+  // fields. Useful for `design status` to show provenance across agent
+  // switches; not an audit guarantee. Absent for structures locked before
+  // these fields existed.
   generatedBy?: AgentName;
+  approvedAt?: string;
 };
 
 // Real files `design build` wrote for this structure -- lets a later `render`
@@ -70,10 +74,12 @@ export type BuildOutput = {
   // locked from the proxy phase. Optional for back-compat with structures
   // saved before this field existed.
   quality?: "proxy" | "final";
-  // Which agent's proposal produced this build (the proxy pass -- `build
-  // --finalize` is mechanical and never overwrites this). See EditCopy's
-  // generatedBy for why this exists.
+  // Which agent's proposal produced this build, and when (the proxy pass
+  // only -- `build --finalize` is mechanical and never overwrites these).
+  // See EditCopy's generatedBy/approvedAt for what this does and doesn't
+  // prove.
   generatedBy?: AgentName;
+  approvedAt?: string;
 };
 
 export type ContentStructure = {
@@ -94,9 +100,10 @@ export type ContentStructure = {
   // existed -- every newly-drafted structure should have it.
   platforms?: PlatformCopy;
   // Which agent's proposal got approved through reviewLoop for this
-  // content-structure variant. See EditCopy's generatedBy for why this
-  // exists.
+  // content-structure variant, and when. See EditCopy's generatedBy/
+  // approvedAt for what this does and doesn't prove.
   generatedBy?: AgentName;
+  approvedAt?: string;
   // Set by `design edit-copy`, after this structure and the project's
   // template are both already locked. Absent until that stage runs.
   editCopy?: EditCopy;

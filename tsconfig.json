@@ -11,5 +11,23 @@
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true
   },
-  "exclude": ["remotion.config.ts"]
+  "exclude": [
+    "remotion.config.ts",
+    // Project-scaffolded campaign content, not tool source -- see
+    // .gitignore's matching entries. Keep this list in sync with it: the
+    // point is that `tsc`/lint validate the generic tool, not whatever
+    // project happens to be scaffolded locally.
+    "src/projects-local",
+    "src/<project-2>"
+    // NOTE: src/index.ts unconditionally imports "./Root.local", so `tsc`
+    // still follows that import into whichever project folders you've
+    // registered there, regardless of the excludes above -- `exclude` only
+    // keeps a file from being scanned as its own root, it doesn't stop an
+    // included file's import graph. That's fine on a fresh clone (the
+    // committed Root.local.tsx.example has zero project imports, so tsc
+    // stays clean until you customize it); once you add real compositions
+    // to your local Root.local.tsx, `tsc` type-checking them too is a
+    // feature -- you'd want to know if something you're previewing is
+    // actually broken.
+  ]
 }

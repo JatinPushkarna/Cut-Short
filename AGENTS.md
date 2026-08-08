@@ -89,15 +89,18 @@ to hand the task back to the user, not to route around them by working
 the filesystem directly.
 
 Why this matters more than it looks like it should: each locked stage
-records exactly what happened — a frame-verified cut list, which agent
-generated it, a human approval — into `Campaign/design.json`. A
-hand-authored composition can look identical to a real one on disk while
-carrying none of that: no frame verification actually happened, no human
-ever reviewed it, and there's no record of either. Run `cutshort design
-status <slug>` any time to see what's actually locked per topic versus
-what's just sitting in `src/<slug>/` unaccounted for — it cross-checks
-`design.json` against the real files on disk and flags anything that
-doesn't match, including files left in `Rendered/` that don't belong
+records a frame-verified cut list plus which agent generated it and when
+(`generatedBy`/`approvedAt`) into `Campaign/design.json` — a paper trail,
+not proof of review. `design.json` is a plain, editable JSON file, so
+none of this is a hard guarantee against a fabricated record; it's only
+reliable when the real command actually ran. A hand-authored composition
+skips even that paper trail entirely: no frame verification happened, no
+record of who (or what) produced it, nothing. Run `cutshort design status
+<slug>` any time to see what's actually locked per topic versus what's
+just sitting in `src/<slug>/` unaccounted for — it cross-checks
+`design.json` against the real files on disk (including timestamps, to
+catch a render that predates a later `--finalize`) and flags anything
+that doesn't match, including files left in `Rendered/` that don't belong
 there.
 
 **Naming convention is by folder, not by filename suffix.** Proxy vs.

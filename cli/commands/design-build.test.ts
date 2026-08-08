@@ -387,6 +387,7 @@ describe("designBuildCommand", () => {
       hookStill: proposal.hookStill,
       quality: "proxy",
       generatedBy: "claude",
+      approvedAt: expect.any(String),
     });
   });
 
