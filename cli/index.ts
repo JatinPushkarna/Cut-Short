@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from "node:fs";
 import { Command } from "commander";
 import { initCommand } from "./commands/init";
 import { transcribeCommand } from "./commands/transcribe";
@@ -9,6 +10,7 @@ import { designEditCopyCommand } from "./commands/design-edit-copy";
 import { designBuildCommand } from "./commands/design-build";
 import { designStatusCommand } from "./commands/design-status";
 import { designApproveCommand } from "./commands/design-approve";
+import { designAmendCommand } from "./commands/design-amend";
 import { renderCommand } from "./commands/render";
 import { isAgentName, type AgentName } from "./lib/agent/types";
 
@@ -48,6 +50,7 @@ const DESIGN_STEPS = [
   "build",
   "status",
   "approve",
+  "amend",
 ] as const;
 
 program
@@ -67,11 +70,21 @@ program
   .option(
     "--feedback <notes>",
     "Non-interactive only (no TTY): regenerate this stage's candidate with revision notes, same as choosing " +
-      '"Give feedback and regenerate" in the interactive menu',
+      '"Give feedback and regenerate" in the interactive menu. On Windows, long or multi-line ' +
+      "feedback text gets mangled by PowerShell/npm argument passing -- use --feedback-file instead.",
+  )
+  .option(
+    "--feedback-file <path>",
+    "Same as --feedback, but read from a file (UTF-8) -- avoids shell quoting issues entirely. " +
+      "Errors if both --feedback and --feedback-file are given.",
   )
   .option(
     "--stage <stage>",
-    "approve only: which pending candidate to approve (phases|topics|content-structure|edit-copy|build)",
+    "approve/amend only: which stage's pending candidate (phases|topics|content-structure|edit-copy|build)",
+  )
+  .option(
+    "--input <path>",
+    "amend only: JSON file with the exact, already-known proposal content -- no agent call is made",
   )
   .action(
     async (
@@ -82,7 +95,9 @@ program
         finalize?: boolean;
         agent: string;
         feedback?: string;
+        feedbackFile?: string;
         stage?: string;
+        input?: string;
       },
     ) => {
       if (!isAgentName(options.agent)) {
@@ -92,6 +107,20 @@ program
         process.exit(1);
       }
       const agent: AgentName = options.agent;
+
+      if (options.feedback && options.feedbackFile) {
+        console.error(
+          `\nPass --feedback or --feedback-file, not both -- unclear which one should win.`,
+        );
+        process.exit(1);
+      }
+      if (options.feedbackFile) {
+        if (!fs.existsSync(options.feedbackFile)) {
+          console.error(`\nNo file found at ${options.feedbackFile}.`);
+          process.exit(1);
+        }
+        options.feedback = fs.readFileSync(options.feedbackFile, "utf-8");
+      }
 
       switch (step) {
         case "phases":
@@ -140,6 +169,26 @@ program
             process.exit(1);
           }
           return designApproveCommand(slug, options.stage, options.topic);
+        case "amend":
+          if (!options.stage) {
+            console.error(
+              `\n\`design amend\` needs --stage <stage> -- which pending candidate this content is for.`,
+            );
+            process.exit(1);
+          }
+          if (!options.input) {
+            console.error(
+              `\n\`design amend\` needs --input <path> -- the JSON file with the exact content.`,
+            );
+            process.exit(1);
+          }
+          return designAmendCommand(
+            slug,
+            options.stage,
+            options.input,
+            options.topic,
+            agent,
+          );
         default:
           console.error(
             `\nUnknown design step "${step}" -- must be one of: ${DESIGN_STEPS.join(", ")}`,
