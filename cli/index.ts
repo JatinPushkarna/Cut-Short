@@ -7,6 +7,7 @@ import { designTopicsCommand } from "./commands/design-topics";
 import { designContentStructureCommand } from "./commands/design-content-structure";
 import { designEditCopyCommand } from "./commands/design-edit-copy";
 import { designBuildCommand } from "./commands/design-build";
+import { renderCommand } from "./commands/render";
 import { isAgentName, type AgentName } from "./lib/agent/types";
 
 const program = new Command();
@@ -107,5 +108,15 @@ program
       }
     },
   );
+
+program
+  .command("render <slug>")
+  .description(
+    "Render a built topic's composition to public/Projects/<slug>/Rendered/<topicId>.mp4 (mechanical, no LLM call).",
+  )
+  .requiredOption("--topic <id>", "Topic id -- render operates on one built topic at a time")
+  .action(async (slug: string, options: { topic: string }) => {
+    return renderCommand(slug, options.topic);
+  });
 
 program.parse();
