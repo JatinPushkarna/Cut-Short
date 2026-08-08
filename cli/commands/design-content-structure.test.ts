@@ -28,6 +28,10 @@ vi.mock("../lib/project", () => ({
   writeProjectData: vi.fn(),
   requireProjectDir: vi.fn(),
   projectDir: vi.fn((s: string) => `/projects/${s}`),
+  pendingCandidatePath: vi.fn(
+    (s: string, stage: string, topicId?: string) =>
+      `/projects/${s}/Campaign/.pending/${stage}${topicId ? `-${topicId}` : ""}.json`,
+  ),
 }));
 vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));

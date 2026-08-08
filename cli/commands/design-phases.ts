@@ -4,9 +4,15 @@ import {
   hasTopics,
   readDesignData,
   saveDesignData,
+  type DesignData,
   type Phase,
 } from "../lib/design";
-import { projectDir, readProjectData, requireProjectDir } from "../lib/project";
+import {
+  pendingCandidatePath,
+  projectDir,
+  readProjectData,
+  requireProjectDir,
+} from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 
 function buildPrompt(
@@ -59,9 +65,32 @@ function render(phases: Phase[]): string {
     .join("\n\n");
 }
 
+// The save step -- identical whether the phases came from a human approving
+// the interactive menu or from `cutshort design approve` reading back a
+// non-interactive candidate. Exported so design-approve.ts can call it.
+export function applyPhasesProposal(
+  slug: string,
+  phases: Phase[],
+  existing: DesignData | null,
+): void {
+  if (hasTopics(existing)) {
+    console.log(
+      "\nWarning: this project already has topics/content structures built on the previous phases -- " +
+        "re-running `design topics` is recommended before continuing.",
+    );
+  }
+
+  saveDesignData(slug, { phases });
+  console.log(
+    `\nSaved ${phases.length} phase(s) to Campaign/design.json and Campaign/design.md`,
+  );
+  console.log(`\nNext: run \`npm run cutshort -- design topics ${slug}\`\n`);
+}
+
 export async function designPhasesCommand(
   slug: string,
   agent: AgentName = "claude",
+  feedback?: string,
 ): Promise<void> {
   requireProjectDir(slug);
   const project = readProjectData(slug);
@@ -81,18 +110,13 @@ export async function designPhasesCommand(
         agent,
       ),
     render,
+    {
+      agent,
+      pendingPath: pendingCandidatePath(slug, "phases"),
+      approveCommand: `cutshort design approve ${slug} --stage phases`,
+      initialFeedback: feedback,
+    },
   );
 
-  if (hasTopics(existing)) {
-    console.log(
-      "\nWarning: this project already has topics/content structures built on the previous phases -- " +
-        "re-running `design topics` is recommended before continuing.",
-    );
-  }
-
-  saveDesignData(slug, { phases });
-  console.log(
-    `\nSaved ${phases.length} phase(s) to Campaign/design.json and Campaign/design.md`,
-  );
-  console.log(`\nNext: run \`npm run cutshort -- design topics ${slug}\`\n`);
+  applyPhasesProposal(slug, phases, existing);
 }

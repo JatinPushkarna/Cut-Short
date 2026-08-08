@@ -2,12 +2,17 @@ import {
   hasContentStructures,
   readDesignData,
   saveDesignData,
+  type DesignData,
   type Phase,
 } from "../lib/design";
 import { groundingInstructions } from "../lib/grounding-prompt";
 import { runAgentTaskJson } from "../lib/agent/runner";
 import type { AgentName } from "../lib/agent/types";
-import { projectDir, requireProjectDir } from "../lib/project";
+import {
+  pendingCandidatePath,
+  projectDir,
+  requireProjectDir,
+} from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 
 function buildPrompt(phases: Phase[], feedback?: string): string {
@@ -65,7 +70,7 @@ function buildPrompt(phases: Phase[], feedback?: string): string {
   return lines.join("\n");
 }
 
-type TopicsByPhase = {
+export type TopicsByPhase = {
   phaseId: string;
   topics: {
     id: string;
@@ -90,31 +95,15 @@ function render(byPhase: TopicsByPhase): string {
     .join("\n\n");
 }
 
-export async function designTopicsCommand(
+// The save step -- identical whether topicsByPhase came from a human
+// approving the interactive menu or from `cutshort design approve` reading
+// back a non-interactive candidate. Exported so design-approve.ts can call it.
+export function applyTopicsProposal(
   slug: string,
-  agent: AgentName = "claude",
-): Promise<void> {
-  requireProjectDir(slug);
-  const design = readDesignData(slug);
-
-  if (!design?.phases?.length) {
-    console.error(
-      `\nNo phases found for ${slug} -- run \`cutshort design phases ${slug}\` first.`,
-    );
-    process.exit(1);
-  }
-
+  design: DesignData,
+  topicsByPhase: TopicsByPhase,
+): void {
   const contentStructuresExisted = hasContentStructures(design);
-
-  const topicsByPhase = await reviewLoop(
-    (feedback) =>
-      runAgentTaskJson<TopicsByPhase>(
-        buildPrompt(design.phases, feedback),
-        projectDir(slug),
-        agent,
-      ),
-    render,
-  );
 
   const byId = new Map(
     topicsByPhase.map((entry) => [entry.phaseId, entry.topics]),
@@ -143,4 +132,38 @@ export async function designTopicsCommand(
   console.log(
     `\nNext: run \`npm run cutshort -- design content-structure ${slug}\`\n`,
   );
+}
+
+export async function designTopicsCommand(
+  slug: string,
+  agent: AgentName = "claude",
+  feedback?: string,
+): Promise<void> {
+  requireProjectDir(slug);
+  const design = readDesignData(slug);
+
+  if (!design?.phases?.length) {
+    console.error(
+      `\nNo phases found for ${slug} -- run \`cutshort design phases ${slug}\` first.`,
+    );
+    process.exit(1);
+  }
+
+  const topicsByPhase = await reviewLoop(
+    (feedback) =>
+      runAgentTaskJson<TopicsByPhase>(
+        buildPrompt(design.phases, feedback),
+        projectDir(slug),
+        agent,
+      ),
+    render,
+    {
+      agent,
+      pendingPath: pendingCandidatePath(slug, "topics"),
+      approveCommand: `cutshort design approve ${slug} --stage topics`,
+      initialFeedback: feedback,
+    },
+  );
+
+  applyTopicsProposal(slug, design, topicsByPhase);
 }

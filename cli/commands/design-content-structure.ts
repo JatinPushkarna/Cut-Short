@@ -5,16 +5,19 @@ import {
   readDesignData,
   saveDesignData,
   type ContentStructure,
+  type DesignData,
   type Phase,
 } from "../lib/design";
 import { groundingInstructions } from "../lib/grounding-prompt";
 import { runAgentTaskJson } from "../lib/agent/runner";
 import type { AgentName } from "../lib/agent/types";
 import {
+  pendingCandidatePath,
   projectDir,
   readProjectData,
   requireProjectDir,
   writeProjectData,
+  type ProjectData,
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 
@@ -206,7 +209,7 @@ type ContentStructuresByTopic = {
   contentStructures: ContentStructure[];
 }[];
 
-type ContentStructureProposal = {
+export type ContentStructureProposal = {
   templateDecision: TemplateDecision;
   contentStructuresByTopic: ContentStructuresByTopic;
 };
@@ -251,10 +254,82 @@ function render(proposal: ContentStructureProposal): string {
   return [templateLines.join("\n"), "", topicLines].join("\n");
 }
 
+// The save step -- identical whether the proposal came from a human
+// approving the interactive menu or from `cutshort design approve` reading
+// back a non-interactive candidate. Exported so design-approve.ts can call
+// it. `agent` here is whichever agent actually generated the proposal
+// (from the pending file's own metadata in the non-interactive case, not
+// necessarily whatever --agent a later `approve` invocation might pass).
+export function applyContentStructureProposal(
+  slug: string,
+  design: DesignData,
+  project: ProjectData,
+  proposal: ContentStructureProposal,
+  agent: AgentName,
+): void {
+  const { templateDecision, contentStructuresByTopic } = proposal;
+
+  const byId = new Map(
+    contentStructuresByTopic.map((entry) => [
+      entry.topicId,
+      entry.contentStructures.map((structure) => ({
+        ...structure,
+        generatedBy: agent,
+        approvedAt: new Date().toISOString(),
+      })),
+    ]),
+  );
+  for (const phase of design.phases) {
+    for (const topic of phase.topics ?? []) {
+      const contentStructures = byId.get(topic.id);
+      if (contentStructures) {
+        topic.contentStructures = contentStructures;
+      }
+    }
+  }
+
+  if (templateDecision.action === "new") {
+    const templateDir = path.resolve(
+      process.cwd(),
+      "src",
+      "templates",
+      templateDecision.templateSlug,
+    );
+    if (fs.existsSync(templateDir)) {
+      console.error(
+        `\nA template already exists at src/templates/${templateDecision.templateSlug} -- re-run and try again ` +
+          `(the model will need to pick a different name).`,
+      );
+      process.exit(1);
+    }
+    fs.mkdirSync(templateDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(templateDir, "brief.md"),
+      templateDecision.newTemplateBrief ?? "",
+    );
+    console.log(
+      `\nNew template brief saved: src/templates/${templateDecision.templateSlug}/brief.md`,
+    );
+  }
+
+  project.template = templateDecision.templateSlug;
+  writeProjectData(slug, project);
+
+  saveDesignData(slug, design);
+  console.log(
+    `\nSaved content structures to Campaign/design.json and Campaign/design.md`,
+  );
+  console.log(`\nUsing template: ${templateDecision.templateSlug}`);
+  console.log(
+    `\nNext: run \`npm run cutshort -- design edit-copy ${slug} --topic <id>\`\n`,
+  );
+}
+
 export async function designContentStructureCommand(
   slug: string,
   topicId?: string,
   agent: AgentName = "claude",
+  feedback?: string,
 ): Promise<void> {
   requireProjectDir(slug);
   const project = readProjectData(slug);
@@ -295,62 +370,13 @@ export async function designContentStructureCommand(
         agent,
       ),
     render,
+    {
+      agent,
+      pendingPath: pendingCandidatePath(slug, "content-structure", topicId),
+      approveCommand: `cutshort design approve ${slug} --stage content-structure${topicId ? ` --topic ${topicId}` : ""}`,
+      initialFeedback: feedback,
+    },
   );
 
-  const { templateDecision, contentStructuresByTopic } = proposal;
-
-  const byId = new Map(
-    contentStructuresByTopic.map((entry) => [
-      entry.topicId,
-      entry.contentStructures.map((structure) => ({
-        ...structure,
-        generatedBy: agent,
-        approvedAt: new Date().toISOString(),
-      })),
-    ]),
-  );
-  for (const phase of design!.phases) {
-    for (const topic of phase.topics ?? []) {
-      const contentStructures = byId.get(topic.id);
-      if (contentStructures) {
-        topic.contentStructures = contentStructures;
-      }
-    }
-  }
-
-  if (templateDecision.action === "new") {
-    const templateDir = path.resolve(
-      process.cwd(),
-      "src",
-      "templates",
-      templateDecision.templateSlug,
-    );
-    if (fs.existsSync(templateDir)) {
-      console.error(
-        `\nA template already exists at src/templates/${templateDecision.templateSlug} -- re-run and try again ` +
-          `(the model will need to pick a different name).`,
-      );
-      process.exit(1);
-    }
-    fs.mkdirSync(templateDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(templateDir, "brief.md"),
-      templateDecision.newTemplateBrief ?? "",
-    );
-    console.log(
-      `\nNew template brief saved: src/templates/${templateDecision.templateSlug}/brief.md`,
-    );
-  }
-
-  project.template = templateDecision.templateSlug;
-  writeProjectData(slug, project);
-
-  saveDesignData(slug, design!);
-  console.log(
-    `\nSaved content structures to Campaign/design.json and Campaign/design.md`,
-  );
-  console.log(`\nUsing template: ${templateDecision.templateSlug}`);
-  console.log(
-    `\nNext: run \`npm run cutshort -- design edit-copy ${slug} --topic <id>\`\n`,
-  );
+  applyContentStructureProposal(slug, design!, project, proposal, agent);
 }

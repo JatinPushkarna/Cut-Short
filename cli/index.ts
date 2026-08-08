@@ -8,6 +8,7 @@ import { designContentStructureCommand } from "./commands/design-content-structu
 import { designEditCopyCommand } from "./commands/design-edit-copy";
 import { designBuildCommand } from "./commands/design-build";
 import { designStatusCommand } from "./commands/design-status";
+import { designApproveCommand } from "./commands/design-approve";
 import { renderCommand } from "./commands/render";
 import { isAgentName, type AgentName } from "./lib/agent/types";
 
@@ -46,6 +47,7 @@ const DESIGN_STEPS = [
   "edit-copy",
   "build",
   "status",
+  "approve",
 ] as const;
 
 program
@@ -55,18 +57,33 @@ program
   )
   .option(
     "--topic <id>",
-    "Scope to a single topic id (content-structure: optional scope; edit-copy/build: required)",
+    "Scope to a single topic id (content-structure: optional scope; edit-copy/build/approve: required for those stages)",
   )
   .option("--agent <provider>", "Agent provider: claude or codex", "claude")
   .option(
     "--finalize",
     "build only: re-extract an already-approved 720p proxy at full native resolution (mechanical, no LLM call)",
   )
+  .option(
+    "--feedback <notes>",
+    "Non-interactive only (no TTY): regenerate this stage's candidate with revision notes, same as choosing " +
+      '"Give feedback and regenerate" in the interactive menu',
+  )
+  .option(
+    "--stage <stage>",
+    "approve only: which pending candidate to approve (phases|topics|content-structure|edit-copy|build)",
+  )
   .action(
     async (
       step: string,
       slug: string,
-      options: { topic?: string; finalize?: boolean; agent: string },
+      options: {
+        topic?: string;
+        finalize?: boolean;
+        agent: string;
+        feedback?: string;
+        stage?: string;
+      },
     ) => {
       if (!isAgentName(options.agent)) {
         console.error(
@@ -78,11 +95,16 @@ program
 
       switch (step) {
         case "phases":
-          return designPhasesCommand(slug, agent);
+          return designPhasesCommand(slug, agent, options.feedback);
         case "topics":
-          return designTopicsCommand(slug, agent);
+          return designTopicsCommand(slug, agent, options.feedback);
         case "content-structure":
-          return designContentStructureCommand(slug, options.topic, agent);
+          return designContentStructureCommand(
+            slug,
+            options.topic,
+            agent,
+            options.feedback,
+          );
         case "edit-copy":
           if (!options.topic) {
             console.error(
@@ -90,7 +112,12 @@ program
             );
             process.exit(1);
           }
-          return designEditCopyCommand(slug, options.topic, agent);
+          return designEditCopyCommand(
+            slug,
+            options.topic,
+            agent,
+            options.feedback,
+          );
         case "build":
           if (!options.topic) {
             console.error(
@@ -101,9 +128,18 @@ program
           return designBuildCommand(slug, options.topic, {
             finalize: options.finalize,
             agent,
+            feedback: options.feedback,
           });
         case "status":
           return designStatusCommand(slug, options.topic);
+        case "approve":
+          if (!options.stage) {
+            console.error(
+              `\n\`design approve\` needs --stage <stage> -- which pending candidate to approve.`,
+            );
+            process.exit(1);
+          }
+          return designApproveCommand(slug, options.stage, options.topic);
         default:
           console.error(
             `\nUnknown design step "${step}" -- must be one of: ${DESIGN_STEPS.join(", ")}`,

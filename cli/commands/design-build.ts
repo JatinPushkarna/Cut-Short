@@ -5,6 +5,7 @@ import {
   readDesignData,
   saveDesignData,
   type ContentStructure,
+  type DesignData,
   type Topic,
 } from "../lib/design";
 import { runAgentTaskJson } from "../lib/agent/runner";
@@ -13,6 +14,7 @@ import {
   finalVideoDir,
   finalVideoPath,
   imagesDir,
+  pendingCandidatePath,
   projectDir,
   readProjectData,
   requireProjectDir,
@@ -356,7 +358,11 @@ function render(proposal: BuildProposal): string {
 export async function designBuildCommand(
   slug: string,
   topicId: string,
-  options: { finalize?: boolean; agent?: AgentName } = {},
+  options: {
+    finalize?: boolean;
+    agent?: AgentName;
+    feedback?: string;
+  } = {},
 ): Promise<void> {
   requireProjectDir(slug);
   const project = readProjectData(slug);
@@ -482,6 +488,8 @@ export async function designBuildCommand(
     project.template,
   );
 
+  const agent: AgentName = options.agent ?? "claude";
+
   const proposal = await reviewLoop(
     (feedback) =>
       runAgentTaskJson<BuildProposal>(
@@ -495,21 +503,43 @@ export async function designBuildCommand(
           feedback,
         ),
         projectDir(slug),
-        options.agent,
+        agent,
       ),
     render,
+    {
+      agent,
+      pendingPath: pendingCandidatePath(slug, "build", topicId),
+      approveCommand: `cutshort design approve ${slug} --stage build --topic ${topicId}`,
+      initialFeedback: options.feedback,
+    },
   );
 
+  applyBuildProposal(slug, design!, structure, topicId, proposal, agent);
+}
+
+// The save step -- identical whether the proposal came from a human
+// approving the interactive menu or from `cutshort design approve` reading
+// back a non-interactive candidate. Exported so design-approve.ts can call
+// it. Proxy-only: `--finalize` is mechanical and handled entirely above,
+// never through reviewLoop.
+export function applyBuildProposal(
+  slug: string,
+  design: DesignData,
+  structure: ContentStructure,
+  topicId: string,
+  proposal: BuildProposal,
+  agent: AgentName,
+): void {
   structure.build = {
     compositionFile: proposal.compositionFile,
     extractedClip: proposal.extractedClip,
     hookStill: proposal.hookStill,
     quality: "proxy",
-    generatedBy: options.agent ?? "claude",
+    generatedBy: agent,
     approvedAt: new Date().toISOString(),
   };
 
-  saveDesignData(slug, design!);
+  saveDesignData(slug, design);
   console.log(
     `\nSaved build output (720p proxy) for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
   );

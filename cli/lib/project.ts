@@ -32,6 +32,19 @@ export function scriptDir(slug: string): string {
   return path.join(projectDir(slug), "Script");
 }
 
+// Where a non-interactive design command's unapproved candidate lives --
+// see review-loop.ts. `cutshort design approve` reads this exact path and
+// deletes it once its contents are actually saved to design.json; nothing
+// else should read or write here.
+export function pendingCandidatePath(
+  slug: string,
+  stage: string,
+  topicId?: string,
+): string {
+  const filename = topicId ? `${stage}-${topicId}.json` : `${stage}.json`;
+  return path.join(campaignDir(slug), ".pending", filename);
+}
+
 // Transcript and caption files (.srt/.txt/.vtt).
 export function srtDir(slug: string): string {
   return path.join(projectDir(slug), "SRT");

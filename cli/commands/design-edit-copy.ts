@@ -3,13 +3,20 @@ import { pathToFileURL } from "node:url";
 import {
   readDesignData,
   saveDesignData,
+  type ContentStructure,
+  type DesignData,
   type EditCopy,
   type Topic,
 } from "../lib/design";
 import { groundingInstructions } from "../lib/grounding-prompt";
 import { runAgentTaskJson } from "../lib/agent/runner";
 import type { AgentName } from "../lib/agent/types";
-import { projectDir, readProjectData, requireProjectDir } from "../lib/project";
+import {
+  pendingCandidatePath,
+  projectDir,
+  readProjectData,
+  requireProjectDir,
+} from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 import type { TemplateManifest } from "../../src/templates/contract";
 
@@ -138,7 +145,7 @@ export function buildEditCopyPrompt(
   return lines.join("\n");
 }
 
-type EditCopyProposal = { editCopy: EditCopy };
+export type EditCopyProposal = { editCopy: EditCopy };
 
 function render(proposal: EditCopyProposal): string {
   const { sourceVideo, rows } = proposal.editCopy;
@@ -153,22 +160,14 @@ function render(proposal: EditCopyProposal): string {
   return `source: ${sourceVideo}\n${rowLines}`;
 }
 
-export async function designEditCopyCommand(
+// Resolves and validates the single locked content structure a topic must
+// have before edit-copy can run against it -- shared by both the command
+// and design-approve.ts, so the same checks apply either way.
+export function findLockedStructure(
+  design: DesignData | null,
   slug: string,
   topicId: string,
-  agent: AgentName = "claude",
-): Promise<void> {
-  requireProjectDir(slug);
-  const project = readProjectData(slug);
-  const design = readDesignData(slug);
-
-  if (!project.template) {
-    console.error(
-      `\nNo template set for ${slug} -- run \`cutshort design content-structure ${slug}\` first.`,
-    );
-    process.exit(1);
-  }
-
+): { topic: Topic; structure: ContentStructure } {
   let foundTopic: Topic | undefined;
   for (const phase of design?.phases ?? []) {
     foundTopic = phase.topics?.find((t) => t.id === topicId);
@@ -194,7 +193,57 @@ export async function designEditCopyCommand(
     );
     process.exit(1);
   }
-  const structure = structures[0];
+  return { topic: foundTopic!, structure: structures[0] };
+}
+
+// The save step -- identical whether the proposal came from a human
+// approving the interactive menu or from `cutshort design approve` reading
+// back a non-interactive candidate. Exported so design-approve.ts can call it.
+export function applyEditCopyProposal(
+  slug: string,
+  design: DesignData,
+  structure: ContentStructure,
+  topicId: string,
+  proposal: EditCopyProposal,
+  agent: AgentName,
+): void {
+  structure.editCopy = {
+    ...proposal.editCopy,
+    generatedBy: agent,
+    approvedAt: new Date().toISOString(),
+  };
+
+  saveDesignData(slug, design);
+  console.log(
+    `\nSaved edit copy for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
+  );
+  console.log(
+    `\nNext: run \`npm run cutshort -- design build ${slug} --topic ${topicId}\`\n`,
+  );
+}
+
+export async function designEditCopyCommand(
+  slug: string,
+  topicId: string,
+  agent: AgentName = "claude",
+  feedback?: string,
+): Promise<void> {
+  requireProjectDir(slug);
+  const project = readProjectData(slug);
+  const design = readDesignData(slug);
+
+  if (!project.template) {
+    console.error(
+      `\nNo template set for ${slug} -- run \`cutshort design content-structure ${slug}\` first.`,
+    );
+    process.exit(1);
+  }
+
+  const { topic: foundTopic, structure } = findLockedStructure(
+    design,
+    slug,
+    topicId,
+  );
 
   const templateManifest = await readTemplateManifest(project.template);
 
@@ -203,7 +252,7 @@ export async function designEditCopyCommand(
       runAgentTaskJson<EditCopyProposal>(
         buildEditCopyPrompt(
           slug,
-          foundTopic!,
+          foundTopic,
           structure,
           templateManifest,
           projectDir(slug),
@@ -213,19 +262,13 @@ export async function designEditCopyCommand(
         agent,
       ),
     render,
+    {
+      agent,
+      pendingPath: pendingCandidatePath(slug, "edit-copy", topicId),
+      approveCommand: `cutshort design approve ${slug} --stage edit-copy --topic ${topicId}`,
+      initialFeedback: feedback,
+    },
   );
 
-  structure.editCopy = {
-    ...proposal.editCopy,
-    generatedBy: agent,
-    approvedAt: new Date().toISOString(),
-  };
-
-  saveDesignData(slug, design!);
-  console.log(
-    `\nSaved edit copy for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
-  );
-  console.log(
-    `\nNext: run \`npm run cutshort -- design build ${slug} --topic ${topicId}\`\n`,
-  );
+  applyEditCopyProposal(slug, design!, structure, topicId, proposal, agent);
 }

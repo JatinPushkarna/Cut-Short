@@ -36,6 +36,10 @@ vi.mock("../lib/project", () => ({
     (s: string, topicId: string) =>
       `public/Projects/${s}/Final/Video/${topicId}.mp4`,
   ),
+  pendingCandidatePath: vi.fn(
+    (s: string, stage: string, topicId?: string) =>
+      `/projects/${s}/Campaign/.pending/${stage}${topicId ? `-${topicId}` : ""}.json`,
+  ),
 }));
 vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));
