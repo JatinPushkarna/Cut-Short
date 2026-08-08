@@ -47,7 +47,7 @@ describe("codexProvider", () => {
       "done",
     );
     expect(execFileSyncMock).toHaveBeenCalledWith(
-      "codex",
+      process.platform === "win32" ? process.execPath : "codex",
       expect.arrayContaining([
         "exec",
         "do it",

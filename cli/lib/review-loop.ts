@@ -11,7 +11,7 @@ export async function reviewLoop<T>(
   let feedback: string | undefined = undefined;
 
   while (true) {
-    console.log("\nAsking Claude Code...\n");
+    console.log("\nAsking the selected agent...\n");
     const result = generate(feedback);
     console.log(render(result));
 
