@@ -21,16 +21,19 @@ src/<project>/
 # project content (built from its own design.json), not tool source code.
 src/<project>/
 
-# Project-specific Claude instructions -- CLAUDE.md (generic, committed)
-# @imports this when present. Campaign/project details belong here instead
-# of in CLAUDE.md, which stays generic on purpose.
+# Project-specific Claude/Codex instructions -- CLAUDE.md/AGENTS.md (generic,
+# committed) @import this when present. Campaign/project details belong here
+# instead, since those files stay generic on purpose.
 CLAUDE.local.md
+Codex.local.md
 
 # Campaign-specific skills -- contain real campaign strategy/performance
 # data (promo-copywriting) or Lie-Detector-only workflow steps
 # (video-editing), not generic cutshort tool guidance. TODO: distill any
-# genuinely generic technique out of these into the public CLAUDE.md or a
-# real skill, then these can go back to being local-only notes.
+# genuinely generic technique out of these into the public CLAUDE.md/AGENTS.md
+# or a real skill, then these can go back to being local-only notes.
 .claude/skills/video-editing/
 .claude/skills/promo-copywriting/
+.agents/skills/video-editing/
+.agents/skills/promo-copywriting/
 .remotion-bin/
