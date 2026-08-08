@@ -27,6 +27,15 @@ correct -- a separate review pass (a Claude Code session) checks the diff
 and runs tests first; that's the whole point of the branch, so merging
 your own work defeats it.
 
+**Name the branch after what changed in this generic tool repo, never after
+the private project/task that prompted it** -- e.g. `codex/windows-launch-fix`,
+not `codex/<topic-id-or-character-name>`. This repo is public; a branch name
+is git metadata, not file content, so `.gitignore` doesn't protect it, and a
+name pulled from a campaign topic ID or script character leaks exactly the
+kind of private content this repo otherwise goes out of its way to keep out
+(see the file-path rule below). This has happened twice already -- treat it
+as a hard rule, not a style preference.
+
 The reviewing agent may merge into `main` once review and tests pass,
 without asking the user first -- it's a local, reversible action, not a
 push to a shared remote. The reviewer escalates to the user only for a
