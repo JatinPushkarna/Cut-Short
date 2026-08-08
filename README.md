@@ -64,6 +64,7 @@ Everything a project needs lives in this one gitignored tree — generated at ru
 - `cutshort transcribe <slug>` — runs `faster-whisper` (offline, `local_files_only=True` against an already-cached model size) on the project's source video, writes `SRT/<video>.srt` and `SRT/<video>.words.json` (word-level timestamps). Re-validates the source video/script paths from `project.json` still exist before running.
 - `cutshort design phases|topics|content-structure|edit-copy|build <slug>` — the full design pipeline described in the table above, each step gated behind a human approval loop before the next can run
 - `cutshort render <slug> --topic <id>` — mechanical Remotion render of a built topic to `Rendered/<topicId>.mp4`
+- `cutshort design status <slug>` — read-only, mechanical, no LLM call: shows each topic's current pipeline stage and which agent generated it, and cross-checks `design.json` against the actual filesystem to flag compositions/renders that exist without a matching locked record
 - A provider-neutral agent runner (`--agent claude|codex`) — every LLM-driven design step can run against either Claude Code or Codex headlessly
 - The 5-beat Remotion rendering template and its full shared component library
 - Frame-accurate crop/timing decisions as a hard rule — every cut, crop, and timing call gets checked against real extracted frames before it's locked, never inferred from a transcript alone

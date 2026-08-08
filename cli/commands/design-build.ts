@@ -462,6 +462,7 @@ export async function designBuildCommand(
     extractedClip: proposal.extractedClip,
     hookStill: proposal.hookStill,
     quality: "proxy",
+    generatedBy: options.agent ?? "claude",
   };
 
   saveDesignData(slug, design!);

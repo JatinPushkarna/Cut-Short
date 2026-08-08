@@ -302,7 +302,10 @@ export async function designContentStructureCommand(
   const byId = new Map(
     contentStructuresByTopic.map((entry) => [
       entry.topicId,
-      entry.contentStructures,
+      entry.contentStructures.map((structure) => ({
+        ...structure,
+        generatedBy: agent,
+      })),
     ]),
   );
   for (const phase of design!.phases) {

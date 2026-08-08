@@ -224,7 +224,7 @@ describe("designEditCopyCommand", () => {
     const savedDesign = saveDesignDataMock.mock.calls[0][1] as DesignData;
     expect(
       savedDesign.phases[0].topics![0].contentStructures![0].editCopy,
-    ).toEqual(editCopy);
+    ).toEqual({ ...editCopy, generatedBy: "claude" });
   });
 
   it("points at this project's own src/<slug>/ for pattern reference, not a hardcoded private project", async () => {

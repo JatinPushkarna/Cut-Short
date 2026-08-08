@@ -7,6 +7,7 @@ import { designTopicsCommand } from "./commands/design-topics";
 import { designContentStructureCommand } from "./commands/design-content-structure";
 import { designEditCopyCommand } from "./commands/design-edit-copy";
 import { designBuildCommand } from "./commands/design-build";
+import { designStatusCommand } from "./commands/design-status";
 import { renderCommand } from "./commands/render";
 import { isAgentName, type AgentName } from "./lib/agent/types";
 
@@ -44,6 +45,7 @@ const DESIGN_STEPS = [
   "content-structure",
   "edit-copy",
   "build",
+  "status",
 ] as const;
 
 program
@@ -100,6 +102,8 @@ program
             finalize: options.finalize,
             agent,
           });
+        case "status":
+          return designStatusCommand(slug, options.topic);
         default:
           console.error(
             `\nUnknown design step "${step}" -- must be one of: ${DESIGN_STEPS.join(", ")}`,

@@ -74,6 +74,44 @@ apply either way -- branch, commit with the trailer, don't merge your own
 work. If invoked this way, `-C <dir>` sets the working root; assume it's
 this repo unless told otherwise.
 
+## Composition work goes through `cutshort design`/`cutshort render` — never by hand
+
+Building a topic's composition, extracting its clip, or rendering it is
+not a task to improvise with raw `ffmpeg`/`npx remotion render` calls or a
+hand-written `.tsx` file, even though you have the tools to do exactly
+that. It only happens through the pipeline: `cutshort design phases ->
+topics -> content-structure -> edit-copy -> build -> build --finalize`,
+then `cutshort render` — run by a human at their own interactive terminal.
+The `design phases/topics/content-structure/edit-copy/build` steps prompt
+for approval and need a real TTY; if you're invoked non-interactively
+(e.g. `codex exec`/`claude -p`) you cannot drive them, and that's a signal
+to hand the task back to the user, not to route around them by working
+the filesystem directly.
+
+Why this matters more than it looks like it should: each locked stage
+records exactly what happened — a frame-verified cut list, which agent
+generated it, a human approval — into `Campaign/design.json`. A
+hand-authored composition can look identical to a real one on disk while
+carrying none of that: no frame verification actually happened, no human
+ever reviewed it, and there's no record of either. Run `cutshort design
+status <slug>` any time to see what's actually locked per topic versus
+what's just sitting in `src/<slug>/` unaccounted for — it cross-checks
+`design.json` against the real files on disk and flags anything that
+doesn't match, including files left in `Rendered/` that don't belong
+there.
+
+**Naming convention is by folder, not by filename suffix.** Proxy vs.
+final vs. shipped output are three different folders with the *same*
+filename in each (`Assets/Video/<topicId>.mp4` = proxy,
+`Final/Video/<topicId>.mp4` = full-res, `Rendered/<topicId>.mp4` = the one
+real deliverable) — never `<topicId>-proxy.mp4` or `<topicId>-final.mp4`
+sitting next to each other in the same folder. That ambiguity is exactly
+what caused real confusion about which file was the actual final render.
+Verification/debug output (contact sheets, check frames) belongs in
+`.frame-check/` or the scratchpad, never in `Assets/`, `Final/`, or
+`Rendered/` — those three folders are pipeline-owned output, not scratch
+space. Clean up anything you put elsewhere once you're done with it.
+
 ## Project data lives under `public/Projects/<slug>/`, not in `src/`
 
 Each project set up via `cutshort init` gets a self-contained, gitignored

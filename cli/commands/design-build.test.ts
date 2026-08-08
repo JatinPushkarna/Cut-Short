@@ -386,6 +386,7 @@ describe("designBuildCommand", () => {
       extractedClip: proposal.extractedClip,
       hookStill: proposal.hookStill,
       quality: "proxy",
+      generatedBy: "claude",
     });
   });
 

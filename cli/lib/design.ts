@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { campaignDir, renderedVideoPath } from "./project";
+import type { AgentName } from "./agent/types";
 
 // Per-platform packaging -- YouTube's title (not caption) is what drives
 // discovery there, so it gets its own field distinct from the caption;
@@ -36,6 +37,12 @@ export type EditCopy = {
   // instead of re-verifying frames from scratch.
   sourceVideo: string;
   rows: EditCopyRow[];
+  // Which agent's proposal got approved through reviewLoop for this stage --
+  // lets `design status` show provenance per stage when a project switches
+  // agents mid-pipeline, and lets a filesystem audit tell "produced by a
+  // real reviewed run" apart from a record that was only ever hand-edited
+  // into design.json. Absent for structures locked before this field existed.
+  generatedBy?: AgentName;
 };
 
 // Real files `design build` wrote for this structure -- lets a later `render`
@@ -63,6 +70,10 @@ export type BuildOutput = {
   // locked from the proxy phase. Optional for back-compat with structures
   // saved before this field existed.
   quality?: "proxy" | "final";
+  // Which agent's proposal produced this build (the proxy pass -- `build
+  // --finalize` is mechanical and never overwrites this). See EditCopy's
+  // generatedBy for why this exists.
+  generatedBy?: AgentName;
 };
 
 export type ContentStructure = {
@@ -82,6 +93,10 @@ export type ContentStructure = {
   // Optional for back-compat with structures saved before this field
   // existed -- every newly-drafted structure should have it.
   platforms?: PlatformCopy;
+  // Which agent's proposal got approved through reviewLoop for this
+  // content-structure variant. See EditCopy's generatedBy for why this
+  // exists.
+  generatedBy?: AgentName;
   // Set by `design edit-copy`, after this structure and the project's
   // template are both already locked. Absent until that stage runs.
   editCopy?: EditCopy;
