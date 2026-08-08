@@ -115,6 +115,46 @@ Verification/debug output (contact sheets, check frames) belongs in
 `Rendered/` — those three folders are pipeline-owned output, not scratch
 space. Clean up anything you put elsewhere once you're done with it.
 
+## Advancing the pipeline — confirm the specific next step, don't infer it from "go ahead"
+
+Approval of one thing is approval of that thing only. If the user
+approves a hook/bridge/copy idea, that's approval of the *idea* — it is
+not permission to run `content-structure`, then `edit-copy`, then `build`,
+one after another, because each of those is its own gated decision
+(template choice, exact cut list, crop values) that the user hasn't seen
+yet. A bare "go ahead" or "yes" only ever means "take the next specific
+action I can see you're about to take" — if you haven't already named
+that action explicitly, stop and name it before running it, rather than
+inferring how far to run based on how much the user seems to want done.
+This has gone wrong in practice: an approved piece of copy got treated as
+license to skip straight to hand-building a composition, and a real
+pipeline stage's output got compressed down to a couple of fields when
+presented for approval, silently dropping the template recommendation and
+platform packaging the user needed to actually review.
+
+**When presenting a stage's output for approval, show every field the
+stage's schema defines, in full** — for `content-structure` that's the
+template decision *and its rationale*, hook, bridge, verbatim SRT
+dialogue, reveal, CTA, and complete YouTube/Instagram/TikTok packaging.
+Summarizing "to keep the answer concise" removes exactly what the human
+needs to approve or reject the thing accurately.
+
+**Known tooling limit, not something to route around:** even when
+everything above is followed correctly, `design content-structure`/
+`edit-copy`/`build`'s actual approval step still needs a real interactive
+terminal (see above), and the pipeline currently returns 2-3 variants
+with no scriptable way to lock in exactly one. If you're running
+non-interactively and reach this point, that's the natural stopping
+place — report the proposal back to the user and let them run the actual
+command themselves, rather than trying to simulate approval or hand-write
+around it.
+
+**Case-specific feedback vs. reusable rules:** correcting course on one
+specific decision (which topic, which variant) is not the same as a
+standing instruction change. Don't edit a shared skill or instruction
+file for a one-off call unless the user explicitly asks you to generalize
+it.
+
 ## Two different kinds of work happen in this repo — know which one you're doing
 
 - **Developing the tool** means changing this repo's own code —
