@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import {
   formatContent,
   hasContentStructures,
@@ -6,6 +7,7 @@ import {
   renderDesignMarkdown,
   type DesignData,
 } from "./design";
+import { renderedVideoPath } from "./project";
 
 describe("formatContent", () => {
   it("passes through real dialogue unchanged", () => {
@@ -108,14 +110,16 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    const md = renderDesignMarkdown(design);
+    const md = renderDesignMarkdown(design, "test-project");
 
     expect(md).toContain("## Awareness (p1)");
     expect(md).toContain("**Goal:** Get eyes on it");
     expect(md).toContain("### Teaser (t1)");
+    expect(md).toContain("**Concept**");
     expect(md).toContain("A short teaser");
     expect(md).toContain("*Why: Builds curiosity*");
-    expect(md).toContain("**Variant A**");
+    expect(md).toContain("#### Variant A");
+    expect(md).toContain("**Copy**");
     expect(md).toContain("- Hook: hook line");
     expect(md).toContain("- Content: JOHN: hi");
   });
@@ -140,15 +144,15 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    expect(renderDesignMarkdown(design)).toContain("NO REAL DIALOGUE MATCH");
+    expect(renderDesignMarkdown(design, "test-project")).toContain("NO REAL DIALOGUE MATCH");
   });
 
   it("handles phases with no topics and topics with no content structures", () => {
     const design: DesignData = {
       phases: [{ id: "p1", name: "Empty phase", goal: "g" }],
     };
-    expect(() => renderDesignMarkdown(design)).not.toThrow();
-    expect(renderDesignMarkdown(design)).toContain("## Empty phase (p1)");
+    expect(() => renderDesignMarkdown(design, "test-project")).not.toThrow();
+    expect(renderDesignMarkdown(design, "test-project")).toContain("## Empty phase (p1)");
   });
 
   it("renders per-platform copy when present", () => {
@@ -182,8 +186,9 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    const md = renderDesignMarkdown(design);
+    const md = renderDesignMarkdown(design, "test-project");
 
+    expect(md).toContain("**Social Media**");
     expect(md).toContain("| Platform | Title | Caption | Hashtags |");
     expect(md).toContain("|---|---|---|---|");
     expect(md).toContain("| YouTube | YT Title | yt cap | #a #b |");
@@ -227,7 +232,7 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    expect(renderDesignMarkdown(design)).toContain("A \\| B");
+    expect(renderDesignMarkdown(design, "test-project")).toContain("A \\| B");
   });
 
   it("indents multi-line content so it nests under the Content bullet", () => {
@@ -250,7 +255,7 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    const md = renderDesignMarkdown(design);
+    const md = renderDesignMarkdown(design, "test-project");
 
     expect(md).toContain("- Content: LINE_ONE\n    LINE_TWO\n    LINE_THREE");
   });
@@ -273,7 +278,7 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    expect(renderDesignMarkdown(design)).not.toContain("| YouTube");
+    expect(renderDesignMarkdown(design, "test-project")).not.toContain("| YouTube");
   });
 
   it("renders an edit-copy cut table when present", () => {
@@ -309,9 +314,10 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    const md = renderDesignMarkdown(design);
+    const md = renderDesignMarkdown(design, "test-project");
 
-    expect(md).toContain("Edit copy (/videos/source.mp4):");
+    expect(md).toContain("**Edit Copy**");
+    expect(md).toContain("Source: /videos/source.mp4");
     expect(md).toContain("| Timestamp | Action | Transition | Effect |");
     expect(md).toContain('| 10:36.7 | CUT IN -- "generic line" | hard cut | — |');
     expect(md).toContain("| 10:38.3 | CUT OUT | — | punch-zoom on speaker |");
@@ -335,7 +341,7 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    expect(renderDesignMarkdown(design)).not.toContain("Edit copy (");
+    expect(renderDesignMarkdown(design, "test-project")).not.toContain("**Edit Copy**");
   });
 
   it("renders build output paths when present, including a null hook still", () => {
@@ -369,11 +375,97 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    const md = renderDesignMarkdown(design);
+    const md = renderDesignMarkdown(design, "example-project");
 
+    expect(md).toContain("**Path**");
     expect(md).toContain("- Composition: src/example-project/Example.tsx");
-    expect(md).toContain("- Extracted clip: public/Projects/example-project/Assets/Video/t1.mp4");
+    expect(md).toContain("- Extracted clip (proxy, 720p): public/Projects/example-project/Assets/Video/t1.mp4");
+    expect(md).toContain("- Extracted clip (final, native res): not finalized yet");
+    expect(md).toContain("- Composition currently uses: unknown");
     expect(md).toContain("- Hook still: not needed for this template");
+    expect(md).toContain("**Rendered**");
+    expect(md).toContain("- not yet rendered");
+  });
+
+  it("shows the final clip path and active quality once a topic has been finalized", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                {
+                  variant: "A",
+                  hook: "h",
+                  bridge: "b",
+                  content: "c",
+                  cta: "follow",
+                  build: {
+                    compositionFile: "src/example-project/Example.tsx",
+                    extractedClip: "public/Projects/example-project/Assets/Video/t1.mp4",
+                    finalClip: "public/Projects/example-project/Final/Video/t1.mp4",
+                    hookStill: null,
+                    quality: "final",
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const md = renderDesignMarkdown(design, "example-project");
+
+    expect(md).toContain("- Extracted clip (final, native res): public/Projects/example-project/Final/Video/t1.mp4");
+    expect(md).toContain("- Composition currently uses: final");
+  });
+
+  it("shows the rendered video path once the file actually exists on disk", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                {
+                  variant: "A",
+                  hook: "h",
+                  bridge: "b",
+                  content: "c",
+                  cta: "follow",
+                  build: {
+                    compositionFile: "src/example-project/Example.tsx",
+                    extractedClip: "public/Projects/example-project/Assets/Video/t1.mp4",
+                    hookStill: null,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const expectedPath = renderedVideoPath("example-project", "t1");
+    const spy = vi.spyOn(fs, "existsSync").mockImplementation((p) => p === expectedPath);
+
+    try {
+      const md = renderDesignMarkdown(design, "example-project");
+      expect(md).toContain(`- ${expectedPath}`);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("omits build output when absent", () => {
@@ -394,6 +486,7 @@ describe("renderDesignMarkdown", () => {
       ],
     };
 
-    expect(renderDesignMarkdown(design)).not.toContain("- Composition:");
+    expect(renderDesignMarkdown(design, "test-project")).not.toContain("- Composition:");
+    expect(renderDesignMarkdown(design, "test-project")).not.toContain("**Rendered**");
   });
 });

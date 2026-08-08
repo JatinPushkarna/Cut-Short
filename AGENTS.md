@@ -17,14 +17,29 @@ history.
 
 @Codex.local.md
 
-## Git workflow — work on a branch, never push to `main` directly
+## Git workflow — branch locally, never commit straight to `main`
 
-Every change goes on its own branch (e.g. `codex/<short-description>`),
-never straight to `main`. Once the branch is ready, push it and tell the
-user it's ready for review -- don't merge it yourself, even if you're
-confident it's correct. A separate review pass (currently a Claude Code
-session) checks the diff before anything lands on `main`; that's the
-whole point of the branch, so merging your own work defeats it.
+Every change goes on its own local branch (e.g. `codex/<short-description>`).
+No need to push it anywhere -- this is reviewed locally, not through a
+GitHub PR. When the branch is ready, tell the user what you did and which
+branch it's on. Don't merge it yourself, even if you're confident it's
+correct -- a separate review pass (a Claude Code session) checks the diff
+and runs tests first; that's the whole point of the branch, so merging
+your own work defeats it.
+
+The reviewing agent may merge into `main` once review and tests pass,
+without asking the user first -- it's a local, reversible action, not a
+push to a shared remote. The reviewer escalates to the user only for a
+product decision, a risky/irreversible change, or a test failure it can't
+resolve on its own. The user isn't expected to read the diff themselves --
+that's the reviewing agent's job.
+
+Why a branch instead of committing straight to `main`: nobody watches a
+Codex session turn-by-turn the way a live chat session gets watched, so
+there's no review happening as the change is made. The branch is what
+creates a place for that review to happen afterward, before anything
+becomes permanent -- if the change is bad, the branch is just deleted and
+`main` was never touched. A direct commit to `main` skips that entirely.
 
 **Every commit needs a clear attribution trailer**, the same way Claude
 Code's own commits already end with
@@ -40,6 +55,15 @@ Co-Authored-By: OpenAI Codex <noreply@openai.com>
 (Adjust the exact name/email if Codex already has a different canonical
 identity it commits under -- the point is a consistent, identifiable
 trailer, not this literal string.)
+
+## You may be invoked directly, not just interactively
+
+Claude Code may run you non-interactively via `codex exec "<prompt>"`
+(or `codex exec --json` for structured output) instead of the user
+relaying messages between two chat sessions by hand. The same rules above
+apply either way -- branch, commit with the trailer, don't merge your own
+work. If invoked this way, `-C <dir>` sets the working root; assume it's
+this repo unless told otherwise.
 
 ## Project data lives under `public/Projects/<slug>/`, not in `src/`
 

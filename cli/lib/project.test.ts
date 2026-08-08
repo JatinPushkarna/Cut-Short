@@ -5,12 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assetsDir,
   campaignDir,
+  finalVideoDir,
+  finalVideoPath,
   imagesDir,
   musicDir,
   PROJECTS_ROOT,
   projectDir,
   projectJsonPath,
   readProjectData,
+  renderedDir,
+  renderedVideoPath,
   scriptDir,
   sfxDir,
   slugify,
@@ -61,6 +65,17 @@ describe("path builders", () => {
     expect(imagesDir(slug)).toBe(path.join(PROJECTS_ROOT, slug, "Assets", "Images"));
     expect(musicDir(slug)).toBe(path.join(PROJECTS_ROOT, slug, "Assets", "Music"));
     expect(sfxDir(slug)).toBe(path.join(PROJECTS_ROOT, slug, "Assets", "Music", "SFX"));
+    expect(renderedDir(slug)).toBe(path.join(PROJECTS_ROOT, slug, "Rendered"));
+    expect(renderedVideoPath(slug, "topic-a")).toBe(path.join(PROJECTS_ROOT, slug, "Rendered", "topic-a.mp4"));
+    expect(finalVideoDir(slug)).toBe(path.join(PROJECTS_ROOT, slug, "Final", "Video"));
+    expect(finalVideoPath(slug, "topic-a")).toBe(path.join(PROJECTS_ROOT, slug, "Final", "Video", "topic-a.mp4"));
+  });
+
+  it("keeps Final/Video/ a sibling of Assets/Video/, not nested under it", () => {
+    // The whole point of the split: Assets/Video/ stays a hard "proxies
+    // only" guarantee, so Final/ must not live underneath it.
+    expect(finalVideoDir(slug).startsWith(videoDir(slug))).toBe(false);
+    expect(videoDir(slug).startsWith(finalVideoDir(slug))).toBe(false);
   });
 });
 

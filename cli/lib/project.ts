@@ -58,6 +58,29 @@ export function sfxDir(slug: string): string {
   return path.join(musicDir(slug), "SFX");
 }
 
+// Final rendered deliverables -- not a Remotion-loaded asset, so it's a
+// sibling of Assets/Campaign/Script/SRT rather than nested under assetsDir().
+export function renderedDir(slug: string): string {
+  return path.join(projectDir(slug), "Rendered");
+}
+
+export function renderedVideoPath(slug: string, topicId: string): string {
+  return path.join(renderedDir(slug), `${topicId}.mp4`);
+}
+
+// Finalized (full native resolution) extracted clips -- deliberately a
+// sibling of Assets/, not nested under it, so Assets/Video/ can stay a hard
+// "720p proxies only" guarantee: no code path that only ever needs to read
+// proxies has any reason to look here, and `design build --finalize` is the
+// only thing that ever writes here.
+export function finalVideoDir(slug: string): string {
+  return path.join(projectDir(slug), "Final", "Video");
+}
+
+export function finalVideoPath(slug: string, topicId: string): string {
+  return path.join(finalVideoDir(slug), `${topicId}.mp4`);
+}
+
 export function requireProjectDir(slug: string): string {
   const dir = projectDir(slug);
   if (!fs.existsSync(dir)) {

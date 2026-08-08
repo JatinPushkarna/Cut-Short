@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { campaignDir } from "./project";
+import { campaignDir, renderedVideoPath } from "./project";
 
 // Per-platform packaging -- YouTube's title (not caption) is what drives
 // discovery there, so it gets its own field distinct from the caption;
@@ -43,9 +43,26 @@ export type EditCopy = {
 // assets it depends on without having to remember or reconstruct the paths.
 export type BuildOutput = {
   compositionFile: string;
+  // The 720p proxy path (Assets/Video/<topicId>.mp4) -- always set once
+  // `design build` has run once. Never deleted by `design build --finalize`.
   extractedClip: string;
+  // The full-native-resolution path (Final/Video/<topicId>.mp4) -- absent/null
+  // until `design build --finalize` runs. Deliberately a *different* path
+  // from extractedClip, not an in-place overwrite -- Assets/Video/ stays a
+  // hard "720p proxies only" guarantee, so nothing that only needs a proxy
+  // can ever accidentally pick up a 4K file from that tree, and vice versa.
+  // Optional for back-compat with structures saved before this field existed.
+  finalClip?: string | null;
   // null when the locked template has no still-hook beat to generate one for.
   hookStill: string | null;
+  // Which of extractedClip/finalClip the composition's OffthreadVideo
+  // currently references. "proxy" (720p, fast, for review) until
+  // `design build --finalize` re-extracts at full native resolution, swaps
+  // the composition's clip reference, and flips this to "final" -- a purely
+  // mechanical step, no LLM call, since everything it needs is already
+  // locked from the proxy phase. Optional for back-compat with structures
+  // saved before this field existed.
+  quality?: "proxy" | "final";
 };
 
 export type ContentStructure = {
@@ -140,7 +157,13 @@ function escapeTableCell(text: string): string {
 // Human-readable mirror of design.json -- fully re-rendered from current
 // state after every step (phases/topics/content-structure), not manually
 // appended, so it can never drift out of sync if a step gets re-run.
-export function renderDesignMarkdown(design: DesignData): string {
+//
+// Grouped so each concern gets its own labeled section instead of one flat
+// bullet list: Concept (why this topic exists, topic-level) then, per
+// variant, Copy (the narrative beats) / Social Media (platform packaging) /
+// Edit Copy (the cut list) / Path (files `design build` wrote) / Rendered
+// (whether the final video actually exists yet under Rendered/).
+export function renderDesignMarkdown(design: DesignData, slug: string): string {
   const lines: string[] = ["# Campaign Design", ""];
 
   for (const phase of design.phases) {
@@ -150,16 +173,24 @@ export function renderDesignMarkdown(design: DesignData): string {
 
     for (const topic of phase.topics ?? []) {
       lines.push(`### ${topic.title} (${topic.id})`);
-      if (topic.description) {
-        lines.push(topic.description);
-      }
-      if (topic.reasoning) {
-        lines.push(`*Why: ${topic.reasoning}*`);
-      }
       lines.push("");
 
+      if (topic.description || topic.reasoning) {
+        lines.push("**Concept**");
+        if (topic.description) {
+          lines.push(topic.description);
+        }
+        if (topic.reasoning) {
+          lines.push(`*Why: ${topic.reasoning}*`);
+        }
+        lines.push("");
+      }
+
       for (const structure of topic.contentStructures ?? []) {
-        lines.push(`**Variant ${structure.variant}**`);
+        lines.push(`#### Variant ${structure.variant}`);
+        lines.push("");
+
+        lines.push("**Copy**");
         lines.push(`- Hook: ${structure.hook}`);
         lines.push(`- Bridge: ${structure.bridge}`);
         lines.push(`- Content: ${indentContinuationLines(formatContent(structure.content))}`);
@@ -167,8 +198,11 @@ export function renderDesignMarkdown(design: DesignData): string {
           lines.push(`- Reveal: ${structure.reveal}`);
         }
         lines.push(`- CTA: ${structure.cta}`);
+        lines.push("");
+
         if (structure.platforms) {
           const { youtube, instagram, tiktok } = structure.platforms;
+          lines.push("**Social Media**");
           lines.push("");
           lines.push("| Platform | Title | Caption | Hashtags |");
           lines.push("|---|---|---|---|");
@@ -181,10 +215,13 @@ export function renderDesignMarkdown(design: DesignData): string {
           lines.push(
             `| TikTok | — | ${escapeTableCell(tiktok.caption)} | ${escapeTableCell(tiktok.hashtags.join(" "))} |`
           );
-        }
-        if (structure.editCopy) {
           lines.push("");
-          lines.push(`Edit copy (${structure.editCopy.sourceVideo}):`);
+        }
+
+        if (structure.editCopy) {
+          lines.push("**Edit Copy**");
+          lines.push("");
+          lines.push(`Source: ${structure.editCopy.sourceVideo}`);
           lines.push("");
           lines.push("| Timestamp | Action | Transition | Effect |");
           lines.push("|---|---|---|---|");
@@ -193,14 +230,25 @@ export function renderDesignMarkdown(design: DesignData): string {
               `| ${escapeTableCell(row.timestamp)} | ${escapeTableCell(row.action)} | ${escapeTableCell(row.transition ?? "—")} | ${escapeTableCell(row.effect ?? "—")} |`
             );
           }
-        }
-        if (structure.build) {
           lines.push("");
-          lines.push(`- Composition: ${structure.build.compositionFile}`);
-          lines.push(`- Extracted clip: ${structure.build.extractedClip}`);
-          lines.push(`- Hook still: ${structure.build.hookStill ?? "not needed for this template"}`);
         }
-        lines.push("");
+
+        if (structure.build) {
+          lines.push("**Path**");
+          lines.push(`- Composition: ${structure.build.compositionFile}`);
+          lines.push(`- Extracted clip (proxy, 720p): ${structure.build.extractedClip}`);
+          lines.push(
+            `- Extracted clip (final, native res): ${structure.build.finalClip ?? "not finalized yet"}`
+          );
+          lines.push(`- Composition currently uses: ${structure.build.quality ?? "unknown"}`);
+          lines.push(`- Hook still: ${structure.build.hookStill ?? "not needed for this template"}`);
+          lines.push("");
+
+          lines.push("**Rendered**");
+          const videoPath = renderedVideoPath(slug, topic.id);
+          lines.push(fs.existsSync(videoPath) ? `- ${videoPath}` : "- not yet rendered");
+          lines.push("");
+        }
       }
     }
   }
@@ -213,7 +261,7 @@ export function renderDesignMarkdown(design: DesignData): string {
 // writeDesignData directly, so the two never fall out of sync.
 export function saveDesignData(slug: string, data: DesignData): void {
   writeDesignData(slug, data);
-  fs.writeFileSync(designMarkdownPath(slug), renderDesignMarkdown(data));
+  fs.writeFileSync(designMarkdownPath(slug), renderDesignMarkdown(data, slug));
 }
 
 // True if any phase already has topics attached -- used to warn when
