@@ -13,6 +13,15 @@ import sys
 from faster_whisper import WhisperModel
 
 
+# PowerShell may expose a legacy Windows code page (for example CP-1252).
+# Whisper can emit any Unicode language, so progress logging must not crash
+# an otherwise-valid transcription when a character is outside that page.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
 def format_srt_timestamp(seconds: float) -> str:
     total_ms = int(round(seconds * 1000))
     hours, total_ms = divmod(total_ms, 3_600_000)
