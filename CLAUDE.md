@@ -73,6 +73,35 @@ Verification/debug output (contact sheets, check frames) belongs in
 `Rendered/` — those three folders are pipeline-owned output, not scratch
 space. Clean up anything you put elsewhere once you're done with it.
 
+## Two different kinds of work happen in this repo — know which one you're doing
+
+- **Developing the tool** means changing this repo's own code —
+  `cli/`, `src/templates/`, config, tests. This is real software
+  engineering: write pseudocode first for non-trivial logic and wait for
+  approval (see a project's own `CLAUDE.local.md`/`Codex.local.md` for the
+  exact rule if one exists), run the test suite (`npm test`) and
+  typecheck before calling a change done, and follow the branch/commit
+  conventions above.
+- **Producing content** means running `cutshort design ...`/`cutshort
+  render` (or being asked to help with what those commands should do —
+  a hook, a cut, a crop, a caption) to actually build a piece of a
+  campaign. This is not code work, and none of the tool-development
+  discipline applies to it: there's no logic to pseudocode, and nothing
+  here touches this repo's own source, so there's nothing for `npm test`
+  to check. The real discipline for this kind of work is frame
+  verification (above) and the pipeline-command rule above it — not
+  software testing.
+
+If a task turns out to need both — e.g. fixing a real bug in `design
+build --finalize` while also trying to get an actual clip out the door —
+treat them as two separate things done in order: fix and test the tool
+first (pseudocode, tests, the works), then use the now-fixed command to
+actually produce the content, through the pipeline like normal. Don't let
+"I'm working on this project's content" become a reason to skip tests on
+a code change, and don't let "I just fixed a bug in the tool" become a
+reason to skip the pipeline commands when producing the content that
+prompted the fix.
+
 ## Project data lives under `public/Projects/<slug>/`, not in `src/`
 
 Each project set up via `cutshort init` gets a self-contained, gitignored
