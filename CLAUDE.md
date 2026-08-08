@@ -120,10 +120,13 @@ public/Projects/<slug>/
 
 A given project's composition code (day-by-day clips, shared components,
 project-specific typography) is real project content too, not tool source
-code — keep it out of `src/`'s top level (e.g. gitignore
-`src/<Project Name>/`) so this repo's own `src/` stays limited to the
-generic Remotion scaffold (`Root.tsx`, `Composition.tsx`) and never ships
-anyone's actual campaign material.
+code — `design build` writes it to `src/projects-local/<slug>/`, gitignored
+by that one generic path (never a project's own name) so this repo's own
+`src/` stays limited to the generic Remotion scaffold (`Root.tsx`,
+`Composition.tsx`, `Root.local.tsx`) and never ships anyone's actual
+campaign material. A project's compositions get registered for local
+preview/render in the gitignored `src/Root.local.tsx`, never in the
+committed `src/Root.tsx` -- see "Composition work goes through..." above.
 
 ## Hard rule: never plan a cut from text alone
 

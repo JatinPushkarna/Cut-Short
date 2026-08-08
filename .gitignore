@@ -13,14 +13,13 @@ out
 # ends up. All of it is user/generated data, not tool source code.
 public
 
-# Campaign-specific composition content -- daily promo compositions and the shared
-# components/typography they use. Campaign work, not part of the cutshort
-# tool itself, so it stays out of this repo's history.
-src/<project>/
-
-# dogfood project -- same reasoning as above, this is
-# project content (built from its own design.json), not tool source code.
-src/<project>/
+# Every cutshort project's composition code (day-by-day clips, shared
+# components/typography) lives under this one root -- see
+# `design build`'s prompt in cli/commands/design-build.ts, which writes new
+# compositions to src/projects-local/<slug>/. One generic rule covers every
+# current and future project; nothing here should ever need a project's own
+# name added to it again.
+src/projects-local/
 
 # Local composition preview registry -- whatever project(s) you're actively
 # previewing get registered here instead of in the committed src/Root.tsx.

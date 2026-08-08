@@ -112,6 +112,7 @@ function makeProposal(overrides: Partial<BuildProposal> = {}): BuildProposal {
       resolutionMatches: true,
       durationMatches: true,
       filesExist: true,
+      rootRegistered: true,
       notes: "",
     },
     ...overrides,
@@ -281,7 +282,7 @@ describe("designBuildCommand", () => {
     expect(prompt).toContain("Extract a 720p REVIEW PROXY");
     expect(prompt).toContain("Scale to 720p");
     expect(prompt).toContain(
-      "Check src/test-project/ for any composition already built",
+      "Check src/projects-local/test-project/ for any composition already built",
     );
     expect(prompt).toContain(
       "public/Projects/test-project/Assets/Video/topic-a.mp4",
@@ -440,6 +441,64 @@ describe("designBuildCommand", () => {
     const renderedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
     expect(renderedOutput).toContain(
       "Command-level check: all referenced files exist on disk.",
+    );
+  });
+
+  it("warns when the composition isn't actually registered in Root.local.tsx", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(
+      makeDesign([
+        {
+          variant: "a",
+          hook: "h",
+          bridge: "b",
+          content: "c",
+          cta: "cta",
+          editCopy: lockedEditCopy,
+        },
+      ]),
+    );
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
+    existsSyncMock.mockReturnValue(true);
+    readFileSyncMock.mockReturnValue(
+      "// Root.local.tsx with no matching <Composition id> entry",
+    );
+
+    await designBuildCommand(slug, "topic-a");
+
+    const renderedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
+    expect(renderedOutput).toContain(
+      'WARNING: "Example" is NOT registered in src/Root.local.tsx',
+    );
+    // Warn, don't hard-block -- same as the missing-file check above.
+    expect(saveDesignDataMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms registration when Root.local.tsx already references the composition id", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(
+      makeDesign([
+        {
+          variant: "a",
+          hook: "h",
+          bridge: "b",
+          content: "c",
+          cta: "cta",
+          editCopy: lockedEditCopy,
+        },
+      ]),
+    );
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
+    existsSyncMock.mockReturnValue(true);
+    readFileSyncMock.mockReturnValue(
+      '<Composition id="Example" component={Example} />',
+    );
+
+    await designBuildCommand(slug, "topic-a");
+
+    const renderedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
+    expect(renderedOutput).toContain(
+      'Command-level check: "Example" is registered in src/Root.local.tsx.',
     );
   });
 

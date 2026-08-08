@@ -14,6 +14,7 @@ vi.mock("node:fs", () => ({
     existsSync: vi.fn(),
     readdirSync: vi.fn(),
     statSync: vi.fn(),
+    readFileSync: vi.fn(),
   },
 }));
 vi.mock("../lib/design", () => ({
@@ -29,6 +30,9 @@ vi.mock("../lib/project", () => ({
 const existsSyncMock = fs.existsSync as unknown as ReturnType<typeof vi.fn>;
 const readdirSyncMock = fs.readdirSync as unknown as ReturnType<typeof vi.fn>;
 const statSyncMock = fs.statSync as unknown as ReturnType<typeof vi.fn>;
+const readFileSyncMock = fs.readFileSync as unknown as ReturnType<
+  typeof vi.fn
+>;
 const readDesignDataMock = readDesignData as unknown as ReturnType<
   typeof vi.fn
 >;
@@ -37,8 +41,9 @@ const requireProjectDirMock = requireProjectDir as unknown as ReturnType<
 >;
 
 const slug = "test-project";
-const srcDir = path.resolve(process.cwd(), "src", slug);
+const srcDir = path.resolve(process.cwd(), "src", "projects-local", slug);
 const renderedDirPath = `/repo/public/Projects/${slug}/Rendered`;
+const rootLocalPath = path.resolve(process.cwd(), "src", "Root.local.tsx");
 
 function compositionPath(name: string): string {
   return path.join(srcDir, name);
@@ -90,6 +95,7 @@ describe("designStatusCommand", () => {
     existsSyncMock.mockReturnValue(false);
     readdirSyncMock.mockReturnValue([]);
     statSyncMock.mockReturnValue({ mtimeMs: 0 });
+    readFileSyncMock.mockReturnValue("");
   });
 
   afterEach(() => {
@@ -187,11 +193,20 @@ describe("designStatusCommand", () => {
     expect(output).not.toContain("topic-a: Topic A");
   });
 
-  it("prints no phase/topic lines for an unknown --topic", () => {
+  it("errors and exits for an unknown --topic instead of silently showing nothing", () => {
+    vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`process.exit(${code})`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     readDesignDataMock.mockReturnValue(makeDesign([]));
-    designStatusCommand(slug, "does-not-exist");
+
+    expect(() => designStatusCommand(slug, "does-not-exist")).toThrow(
+      "process.exit(1)",
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"does-not-exist" not found'),
+    );
     expect(output).not.toContain("Phase One");
-    expect(output).not.toContain("topic-a");
   });
 
   it("flags a composition on disk with no matching design.json record", () => {
@@ -202,7 +217,7 @@ describe("designStatusCommand", () => {
     );
     designStatusCommand(slug);
     expect(output).toContain(
-      `UNTRACKED COMPOSITION: src/${slug}/Stray.tsx`,
+      `UNTRACKED COMPOSITION: src/projects-local/${slug}/Stray.tsx`,
     );
   });
 
@@ -271,7 +286,8 @@ describe("designStatusCommand", () => {
   it("does not flag a render that postdates its composition file", () => {
     readDesignDataMock.mockReturnValue(makeDesign([finalizedStructure]));
     existsSyncMock.mockImplementation(
-      (p: string) => p === renderedDirPath || p === compositionPath("TopicA.tsx"),
+      (p: string) =>
+        p === renderedDirPath || p === compositionPath("TopicA.tsx") || p === rootLocalPath,
     );
     readdirSyncMock.mockImplementation((p: string) =>
       p === renderedDirPath ? ["topic-a.mp4"] : [],
@@ -279,6 +295,7 @@ describe("designStatusCommand", () => {
     statSyncMock.mockImplementation((p: string) => ({
       mtimeMs: p === compositionPath("TopicA.tsx") ? 1_000 : 2_000,
     }));
+    readFileSyncMock.mockReturnValue('<Composition id="TopicA" />');
     designStatusCommand(slug);
     expect(output).not.toContain("STALE RENDER");
     expect(output).toContain("Filesystem audit: OK");
@@ -290,7 +307,8 @@ describe("designStatusCommand", () => {
       (p: string) =>
         p === srcDir ||
         p === renderedDirPath ||
-        p === compositionPath("TopicA.tsx"),
+        p === compositionPath("TopicA.tsx") ||
+        p === rootLocalPath,
     );
     readdirSyncMock.mockImplementation((p: string) => {
       if (p === srcDir) return ["TopicA.tsx"];
@@ -300,7 +318,27 @@ describe("designStatusCommand", () => {
     statSyncMock.mockImplementation((p: string) => ({
       mtimeMs: p === compositionPath("TopicA.tsx") ? 1_000 : 2_000,
     }));
+    readFileSyncMock.mockReturnValue('<Composition id="TopicA" />');
     designStatusCommand(slug);
     expect(output).toContain("Filesystem audit: OK");
+  });
+
+  it("flags a locked composition that isn't registered in Root.local.tsx", () => {
+    readDesignDataMock.mockReturnValue(makeDesign([finalizedStructure]));
+    existsSyncMock.mockImplementation(
+      (p: string) => p === compositionPath("TopicA.tsx") || p === rootLocalPath,
+    );
+    readFileSyncMock.mockReturnValue("// no matching Composition entry here");
+    designStatusCommand(slug);
+    expect(output).toContain(
+      'NOT REGISTERED: topic "topic-a"\'s composition (TopicA) exists on disk',
+    );
+  });
+
+  it("flags a locked composition when Root.local.tsx doesn't exist at all yet", () => {
+    readDesignDataMock.mockReturnValue(makeDesign([finalizedStructure]));
+    existsSyncMock.mockImplementation((p: string) => p === compositionPath("TopicA.tsx"));
+    designStatusCommand(slug);
+    expect(output).toContain("NOT REGISTERED");
   });
 });

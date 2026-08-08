@@ -13,12 +13,11 @@
   },
   "exclude": [
     "remotion.config.ts",
-    // Project-scaffolded campaign content, not tool source -- see
-    // .gitignore's matching entries. Keep this list in sync with it: the
-    // point is that `tsc`/lint validate the generic tool, not whatever
-    // project happens to be scaffolded locally.
-    "src/projects-local",
-    "src/<project-2>"
+    // Every project-scaffolded composition folder lives under this one
+    // gitignored root (see .gitignore) -- one generic exclude covers every
+    // current and future project, no per-project name ever needs adding
+    // here again.
+    "src/projects-local"
     // NOTE: src/index.ts unconditionally imports "./Root.local", so `tsc`
     // still follows that import into whichever project folders you've
     // registered there, regardless of the excludes above -- `exclude` only

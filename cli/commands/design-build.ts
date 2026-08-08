@@ -110,6 +110,7 @@ export type BuildProposal = {
     resolutionMatches: boolean;
     durationMatches: boolean;
     filesExist: boolean;
+    rootRegistered: boolean;
     notes: string;
   };
 };
@@ -172,7 +173,7 @@ export function buildBuildPrompt(
   );
   lines.push("");
   lines.push(
-    `Check src/${project.slug}/ for any composition already built in this project (an ` +
+    `Check src/projects-local/${project.slug}/ for any composition already built in this project (an ` +
       "earlier \`design build\` run) -- if one exists, read it as a wiring PATTERN, not " +
       "content to reuse: how it assembles Sequence/OffthreadVideo frame math, per-segment " +
       "objectPosition, a punch-zoom interpolate, Caption cue arrays. Match the structure, " +
@@ -229,12 +230,23 @@ export function buildBuildPrompt(
   );
   lines.push("");
   lines.push(
-    `Write the composition file -> src/${project.slug}/<PascalCaseTopicName>.tsx -- wire the ` +
+    `Write the composition file -> src/projects-local/${project.slug}/<PascalCaseTopicName>.tsx -- wire the ` +
       "locked copy + editCopy's cut list + the template's real components together, " +
       "following the same pattern as the reference composition above (or, if there wasn't " +
       "one, standard Remotion practice): frame math from editCopy's real timestamps, one " +
       "cut/Sequence per editCopy row (its row count is already the verified real shot count -- " +
       "don't merge or split rows), captions from the words.json slice you queried.",
+  );
+  lines.push("");
+  lines.push(
+    "Register this composition for local preview and rendering -- without this, `cutshort " +
+      "render` cannot find it even though everything else about the build succeeded. Open " +
+      "src/Root.local.tsx (if it doesn't exist yet, first copy src/Root.local.tsx.example to " +
+      "create it). Add an import for the new component and a <Composition " +
+      'id="<PascalCaseTopicName>" component={...} durationInFrames={...} fps={...} ' +
+      "width={...} height={...} /> entry, matching the pattern of whatever's already there. " +
+      "Never add this to src/Root.tsx -- that file must stay generic, project compositions " +
+      "only ever go in Root.local.tsx.",
   );
   lines.push(
     "editCopy's objectPosition/effect values are already-verified ground truth from an earlier " +
@@ -253,6 +265,11 @@ export function buildBuildPrompt(
   );
   lines.push(
     "2. Confirm every path the new .tsx references actually exists on disk.",
+  );
+  lines.push(
+    "3. Confirm src/Root.local.tsx actually contains a <Composition " +
+      'id="<PascalCaseTopicName>"> entry for what you just registered -- report ' +
+      "selfVerification.rootRegistered honestly (false if you skipped this step or aren't sure).",
   );
   lines.push(
     "Do NOT extract or view any frames from the new clip for this check -- a human reviews " +
@@ -281,6 +298,7 @@ export function buildBuildPrompt(
     "resolutionMatches": boolean,
     "durationMatches": boolean,
     "filesExist": boolean,
+    "rootRegistered": boolean,
     "notes": string
   }
 }`,
@@ -288,11 +306,31 @@ export function buildBuildPrompt(
   return lines.join("\n");
 }
 
+// Mirrors ownFileCheck below it: never trust the agent's own claim that it
+// registered the composition -- an agent can (and has) skipped this exact
+// step while everything else about a build genuinely succeeded, which
+// leaves `cutshort render` unable to find the composition it just built.
+function checkRootRegistration(compositionFile: string): {
+  compositionId: string;
+  registered: boolean;
+} {
+  const compositionId = path.basename(compositionFile, ".tsx");
+  const rootLocalPath = path.resolve(process.cwd(), "src", "Root.local.tsx");
+  const registered =
+    fs.existsSync(rootLocalPath) &&
+    fs.readFileSync(rootLocalPath, "utf-8").includes(`id="${compositionId}"`);
+  return { compositionId, registered };
+}
+
 function render(proposal: BuildProposal): string {
   const ownFileCheck =
     fs.existsSync(proposal.compositionFile) &&
     fs.existsSync(proposal.extractedClip) &&
     (proposal.hookStill === null || fs.existsSync(proposal.hookStill));
+
+  const { compositionId, registered } = checkRootRegistration(
+    proposal.compositionFile,
+  );
 
   return [
     `Composition: ${proposal.compositionFile}`,
@@ -307,6 +345,11 @@ function render(proposal: BuildProposal): string {
     ownFileCheck
       ? "Command-level check: all referenced files exist on disk."
       : "WARNING: command-level check found a missing file the agent claimed to write.",
+    registered
+      ? `Command-level check: "${compositionId}" is registered in src/Root.local.tsx.`
+      : `WARNING: "${compositionId}" is NOT registered in src/Root.local.tsx -- ` +
+          `\`cutshort render\` will fail to find it. Add a <Composition id="${compositionId}"> ` +
+          "entry there before approving, or add it now and re-run.",
   ].join("\n");
 }
 

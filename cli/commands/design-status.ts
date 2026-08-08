@@ -89,7 +89,7 @@ function auditFilesystem(slug: string, design: DesignData | null): string[] {
   const knownTopicIds = new Set(knownCompositions.keys());
 
   // 1. Composition files on disk with no matching design.json record.
-  const srcDir = path.resolve(process.cwd(), "src", slug);
+  const srcDir = path.resolve(process.cwd(), "src", "projects-local", slug);
   const knownCompositionPaths = new Set(knownCompositions.values());
   if (fs.existsSync(srcDir)) {
     for (const file of fs.readdirSync(srcDir)) {
@@ -97,7 +97,7 @@ function auditFilesystem(slug: string, design: DesignData | null): string[] {
       const fullPath = path.join(srcDir, file);
       if (!knownCompositionPaths.has(fullPath)) {
         issues.push(
-          `UNTRACKED COMPOSITION: src/${slug}/${file} exists on disk but has no ` +
+          `UNTRACKED COMPOSITION: src/projects-local/${slug}/${file} exists on disk but has no ` +
             `matching design.json build record -- no locked copy, no frame-verified ` +
             `cut list, no human approval on record for this file. Was it hand-authored ` +
             `outside \`design build\`?`,
@@ -163,6 +163,26 @@ function auditFilesystem(slug: string, design: DesignData | null): string[] {
     }
   }
 
+  // 5. A locked, on-disk composition that was never registered in
+  // Root.local.tsx -- `design build`'s prompt asks the agent to do this,
+  // but nothing mechanically enforces it, so a build can succeed while
+  // still leaving `cutshort render` unable to find the composition.
+  const rootLocalPath = path.resolve(process.cwd(), "src", "Root.local.tsx");
+  const rootLocalContent = fs.existsSync(rootLocalPath)
+    ? fs.readFileSync(rootLocalPath, "utf-8")
+    : null;
+  for (const [topicId, compositionFile] of knownCompositions) {
+    if (!fs.existsSync(compositionFile)) continue; // already reported as MISSING above
+    const compositionId = path.basename(compositionFile, ".tsx");
+    if (!rootLocalContent || !rootLocalContent.includes(`id="${compositionId}"`)) {
+      issues.push(
+        `NOT REGISTERED: topic "${topicId}"'s composition (${compositionId}) exists on disk ` +
+          `and is locked in design.json, but isn't registered in src/Root.local.tsx -- ` +
+          `\`cutshort render\` will fail to find it. Add a <Composition id="${compositionId}"> entry.`,
+      );
+    }
+  }
+
   return issues;
 }
 
@@ -173,6 +193,16 @@ export function designStatusCommand(slug: string, topicId?: string): void {
   if (!design) {
     console.log(`\nNo Campaign/design.json for ${slug} yet -- run \`cutshort design phases ${slug}\` first.\n`);
     return;
+  }
+
+  if (topicId) {
+    const exists = design.phases.some((phase) =>
+      (phase.topics ?? []).some((t) => t.id === topicId),
+    );
+    if (!exists) {
+      console.error(`\nTopic "${topicId}" not found for ${slug}.`);
+      process.exit(1);
+    }
   }
 
   console.log(`\nPipeline status -- ${slug}\n`);
