@@ -29,9 +29,12 @@
     "vitest": "^3.2.4"
   },
   "scripts": {
+    "predev": "node scripts/ensure-root-local.js",
     "dev": "remotion studio",
+    "prebuild": "node scripts/ensure-root-local.js",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
+    "prelint": "node scripts/ensure-root-local.js",
     "lint": "eslint src && tsc",
     "cutshort": "tsx cli/index.ts",
     "test": "vitest run"

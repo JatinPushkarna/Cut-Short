@@ -1,0 +1,5 @@
+// Copied to src/Root.local.tsx automatically the first time you run
+// `npm run dev` or `npm run build` (see scripts/ensure-root-local.js).
+// Root.local.tsx is gitignored -- add your own project's compositions
+// there freely; it can never end up in a commit.
+export { RemotionRoot } from "./Root";

@@ -22,11 +22,20 @@ src/<project>/
 # project content (built from its own design.json), not tool source code.
 src/<project>/
 
+# Local composition preview registry -- whatever project(s) you're actively
+# previewing get registered here instead of in the committed src/Root.tsx.
+# Auto-created from src/Root.local.tsx.example on first `npm run dev`/`build`
+# (see scripts/ensure-root-local.js) if it doesn't exist yet. This is what
+# stops a project-specific import from ever ending up in a real commit again
+# -- src/Root.tsx stays generic because there's nowhere for it to drift to.
+src/Root.local.tsx
+
 # Project-specific Claude/Codex instructions -- CLAUDE.md/AGENTS.md (generic,
 # committed) @import this when present. Campaign/project details belong here
 # instead, since those files stay generic on purpose.
 CLAUDE.local.md
 Codex.local.md
+ARCHITECTURE-REVIEW.local.md
 
 # Campaign-specific skills -- contain real campaign strategy/performance
 # data (promo-copywriting) or Lie-Detector-only workflow steps
