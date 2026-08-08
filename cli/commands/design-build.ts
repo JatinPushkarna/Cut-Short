@@ -61,6 +61,16 @@ function extractClip(options: {
   execFileSync("ffmpeg", args, { stdio: "pipe" });
 }
 
+// Edit-copy rows describe shot ranges (for example "00:01:02.100–00:01:04.500").
+// Older fixtures used one boundary per row, so retain that form as a fallback.
+function timestampBoundary(
+  timestamp: string,
+  boundary: "start" | "end",
+): string {
+  const parts = timestamp.split(/\s*(?:–|—|\s-\s)\s*/u);
+  return boundary === "start" ? parts[0] : parts[parts.length - 1];
+}
+
 // Remotion's staticFile() takes a path relative to public/, not an absolute
 // filesystem path -- e.g. "Projects/<slug>/Assets/Video/<id>.mp4", matching
 // how every existing composition already references its assets.
@@ -117,9 +127,14 @@ export function buildBuildPrompt(
   feedback?: string,
 ): string {
   const editCopy = structure.editCopy!;
-  const firstTimestamp = editCopy.rows[0]?.timestamp ?? "unknown";
-  const lastTimestamp =
-    editCopy.rows[editCopy.rows.length - 1]?.timestamp ?? "unknown";
+  const firstTimestamp = timestampBoundary(
+    editCopy.rows[0]?.timestamp ?? "unknown",
+    "start",
+  );
+  const lastTimestamp = timestampBoundary(
+    editCopy.rows[editCopy.rows.length - 1]?.timestamp ?? "unknown",
+    "end",
+  );
   const clipDestination = `${videoDir(project.slug)}/${topic.id}.mp4`;
   const hookStillDestination = `${imagesDir(project.slug)}/${topic.id}HookBG.jpg`;
 
@@ -388,8 +403,8 @@ export async function designBuildCommand(
     );
     extractClip({
       sourceVideoPath: project.videoPath,
-      startTimestamp: firstTimestamp,
-      endTimestamp: lastTimestamp,
+      startTimestamp: timestampBoundary(firstTimestamp, "start"),
+      endTimestamp: timestampBoundary(lastTimestamp, "end"),
       destination: finalDestination,
       capTo720p: false,
     });

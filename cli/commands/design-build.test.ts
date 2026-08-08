@@ -65,8 +65,8 @@ const slug = "test-project";
 const lockedEditCopy = {
   sourceVideo: "/video.mp4",
   rows: [
-    { timestamp: "0:10", action: "CUT IN" },
-    { timestamp: "0:40", action: "CUT OUT" },
+    { timestamp: "0:10–0:20", action: "CUT IN" },
+    { timestamp: "0:30–0:40", action: "CUT OUT" },
   ],
 };
 
