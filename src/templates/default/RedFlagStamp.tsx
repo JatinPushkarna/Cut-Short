@@ -2,18 +2,18 @@ import { AbsoluteFill, Audio, Sequence, interpolate, spring, staticFile, useCurr
 import type { RedFlagStampProps } from "../contract";
 import { fontFamily } from "./theme";
 
-// Stamped reveal card for verdict beats --
-// "RED FLAG." for a caught-vague-answer beat, or pass color="green" /
-// label="GREEN FLAG." beepSfx={false} for a clean-truth exception
-// (per the format rule: a clean-truth beat gets silence instead of a beep -- that's
-// the signal, not an oversight).
+// Stamped reveal card for a "caught" verdict beat -- label="RED FLAG." for
+// a caught-vague-answer beat, or pass color="green" / label="GREEN FLAG." /
+// beepSfx={false} for a clean-truth exception (a beat with nothing to catch
+// gets silence instead of a beep -- that's the signal, not an oversight).
 //
 // The beep is synced to the stamp's own entrance, not buried mid-dialogue
 // in the video beat -- the verdict card is where the "gotcha" lands.
 //
-// `scale`/`volume` let a day dial the stamp down (e.g. a milder
-// answer gets a smaller, quieter verdict than a more consequential one -- "this one
-// hurts more" is the point, not a bigger gotcha).
+// `scale`/`volume` let a caller dial the stamp down for a lower-stakes
+// verdict (e.g. a milder answer gets a smaller, quieter stamp than a more
+// consequential one) -- "this one hurts more" is the point, not a bigger
+// gotcha by default.
 export const RedFlagStamp: React.FC<RedFlagStampProps> = ({
   label = "RED FLAG.",
   color = "#e23b3b",
