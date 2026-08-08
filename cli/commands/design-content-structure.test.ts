@@ -2,8 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readDesignData, saveDesignData, type DesignData } from "../lib/design";
-import { readProjectData, writeProjectData, type ProjectData } from "../lib/project";
-import { runClaudeTaskJson } from "../lib/claude-task";
+import {
+  readProjectData,
+  writeProjectData,
+  type ProjectData,
+} from "../lib/project";
+import { runAgentTaskJson } from "../lib/agent/runner";
 import { reviewLoop } from "../lib/review-loop";
 import { designContentStructureCommand } from "./design-content-structure";
 
@@ -25,17 +29,29 @@ vi.mock("../lib/project", () => ({
   requireProjectDir: vi.fn(),
   projectDir: vi.fn((s: string) => `/projects/${s}`),
 }));
-vi.mock("../lib/claude-task", () => ({ runClaudeTaskJson: vi.fn() }));
+vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));
 
 const existsSyncMock = fs.existsSync as unknown as ReturnType<typeof vi.fn>;
 const mkdirSyncMock = fs.mkdirSync as unknown as ReturnType<typeof vi.fn>;
-const writeFileSyncMock = fs.writeFileSync as unknown as ReturnType<typeof vi.fn>;
-const readDesignDataMock = readDesignData as unknown as ReturnType<typeof vi.fn>;
-const saveDesignDataMock = saveDesignData as unknown as ReturnType<typeof vi.fn>;
-const readProjectDataMock = readProjectData as unknown as ReturnType<typeof vi.fn>;
-const writeProjectDataMock = writeProjectData as unknown as ReturnType<typeof vi.fn>;
-const runClaudeTaskJsonMock = runClaudeTaskJson as unknown as ReturnType<typeof vi.fn>;
+const writeFileSyncMock = fs.writeFileSync as unknown as ReturnType<
+  typeof vi.fn
+>;
+const readDesignDataMock = readDesignData as unknown as ReturnType<
+  typeof vi.fn
+>;
+const saveDesignDataMock = saveDesignData as unknown as ReturnType<
+  typeof vi.fn
+>;
+const readProjectDataMock = readProjectData as unknown as ReturnType<
+  typeof vi.fn
+>;
+const writeProjectDataMock = writeProjectData as unknown as ReturnType<
+  typeof vi.fn
+>;
+const runAgentTaskJsonMock = runAgentTaskJson as unknown as ReturnType<
+  typeof vi.fn
+>;
 const reviewLoopMock = reviewLoop as unknown as ReturnType<typeof vi.fn>;
 
 const slug = "test-project";
@@ -83,7 +99,12 @@ const designWithTwoTopics: DesignData = {
   ],
 };
 
-function makeProposal(overrides: Partial<{ templateDecision: any; contentStructuresByTopic: any }> = {}) {
+function makeProposal(
+  overrides: Partial<{
+    templateDecision: any;
+    contentStructuresByTopic: any;
+  }> = {},
+) {
   return {
     templateDecision: {
       action: "reuse",
@@ -102,7 +123,11 @@ function makeProposal(overrides: Partial<{ templateDecision: any; contentStructu
             reveal: "A generic reveal line.",
             cta: "FOLLOW -- more soon.",
             platforms: {
-              youtube: { title: "YT Title", caption: "yt cap", hashtags: ["#ShortFilm"] },
+              youtube: {
+                title: "YT Title",
+                caption: "yt cap",
+                hashtags: ["#ShortFilm"],
+              },
               instagram: { caption: "ig cap", hashtags: ["#IndieFilm"] },
               tiktok: { caption: "tt cap", hashtags: ["#FilmTok"] },
             },
@@ -126,18 +151,24 @@ describe("designContentStructureCommand", () => {
     saveDesignDataMock.mockReset();
     readProjectDataMock.mockReset();
     writeProjectDataMock.mockReset();
-    runClaudeTaskJsonMock.mockReset();
+    runAgentTaskJsonMock.mockReset();
     reviewLoopMock.mockReset();
 
     // Drive reviewLoop by actually invoking the `generate` callback it was
-    // given, so runClaudeTaskJson gets called and its prompt argument is
+    // given, so runAgentTaskJson gets called and its prompt argument is
     // inspectable -- exercises the real buildPrompt() without exporting it.
-    reviewLoopMock.mockImplementation(async (generate: (feedback?: string) => unknown) => generate(undefined));
+    reviewLoopMock.mockImplementation(
+      async (generate: (feedback?: string) => unknown) => generate(undefined),
+    );
 
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`process.exit(${code})`);
     }) as never) as unknown as ReturnType<typeof vi.fn>;
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined) as unknown as ReturnType<typeof vi.fn>;
+    errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined) as unknown as ReturnType<
+      typeof vi.fn
+    >;
     vi.spyOn(console, "log").mockImplementation(() => undefined);
   });
 
@@ -148,21 +179,27 @@ describe("designContentStructureCommand", () => {
 
   it("exits if no topics exist yet", async () => {
     readProjectDataMock.mockReturnValue(makeProject());
-    readDesignDataMock.mockReturnValue({ phases: [{ id: "p1", name: "Phase", goal: "g", topics: [] }] });
+    readDesignDataMock.mockReturnValue({
+      phases: [{ id: "p1", name: "Phase", goal: "g", topics: [] }],
+    });
 
-    await expect(designContentStructureCommand(slug)).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("No topics found"));
-    expect(runClaudeTaskJsonMock).not.toHaveBeenCalled();
+    await expect(designContentStructureCommand(slug)).rejects.toThrow(
+      "process.exit(1)",
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("No topics found"),
+    );
+    expect(runAgentTaskJsonMock).not.toHaveBeenCalled();
   });
 
   it("names the project's current template in the prompt", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(designWithTopic);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
-    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
     expect(prompt).toContain("contract.ts");
     expect(prompt).toContain("This project currently uses: default");
   });
@@ -170,13 +207,17 @@ describe("designContentStructureCommand", () => {
   it("decides the template before drafting copy, not after (gate, not parallel output)", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(designWithTopic);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
-    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
-    const templateGateIndex = prompt.indexOf("Before drafting any copy, decide which visual template");
-    const copyDraftIndex = prompt.indexOf("Now propose 2-3 DIFFERENT content structure variants");
+    const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
+    const templateGateIndex = prompt.indexOf(
+      "Before drafting any copy, decide which visual template",
+    );
+    const copyDraftIndex = prompt.indexOf(
+      "Now propose 2-3 DIFFERENT content structure variants",
+    );
     expect(templateGateIndex).toBeGreaterThan(-1);
     expect(copyDraftIndex).toBeGreaterThan(-1);
     expect(templateGateIndex).toBeLessThan(copyDraftIndex);
@@ -185,22 +226,25 @@ describe("designContentStructureCommand", () => {
   it("says 'no template yet' in the prompt when project.template is null", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: null }));
     readDesignDataMock.mockReturnValue(designWithTopic);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
-    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
     expect(prompt).toContain("This project currently uses: no template yet");
   });
 
   it("on 'reuse', sets project.template and never touches the template directory", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(designWithTopic);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
-    expect(writeProjectDataMock).toHaveBeenCalledWith(slug, expect.objectContaining({ template: "default" }));
+    expect(writeProjectDataMock).toHaveBeenCalledWith(
+      slug,
+      expect.objectContaining({ template: "default" }),
+    );
     expect(mkdirSyncMock).not.toHaveBeenCalled();
     expect(writeFileSyncMock).not.toHaveBeenCalled();
   });
@@ -209,7 +253,7 @@ describe("designContentStructureCommand", () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: null }));
     readDesignDataMock.mockReturnValue(designWithTopic);
     existsSyncMock.mockReturnValue(false);
-    runClaudeTaskJsonMock.mockReturnValue(
+    runAgentTaskJsonMock.mockReturnValue(
       makeProposal({
         templateDecision: {
           action: "new",
@@ -217,25 +261,35 @@ describe("designContentStructureCommand", () => {
           reasoning: "no existing template fits this tone",
           newTemplateBrief: "# New Template -- template brief\n\n...",
         },
-      })
+      }),
     );
 
     await designContentStructureCommand(slug);
 
-    const expectedDir = path.resolve(process.cwd(), "src", "templates", "new-template");
-    expect(mkdirSyncMock).toHaveBeenCalledWith(expectedDir, { recursive: true });
+    const expectedDir = path.resolve(
+      process.cwd(),
+      "src",
+      "templates",
+      "new-template",
+    );
+    expect(mkdirSyncMock).toHaveBeenCalledWith(expectedDir, {
+      recursive: true,
+    });
     expect(writeFileSyncMock).toHaveBeenCalledWith(
       path.join(expectedDir, "brief.md"),
-      expect.stringContaining("# New Template -- template brief")
+      expect.stringContaining("# New Template -- template brief"),
     );
-    expect(writeProjectDataMock).toHaveBeenCalledWith(slug, expect.objectContaining({ template: "new-template" }));
+    expect(writeProjectDataMock).toHaveBeenCalledWith(
+      slug,
+      expect.objectContaining({ template: "new-template" }),
+    );
   });
 
   it("on 'new', errors out instead of overwriting an existing template folder", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: null }));
     readDesignDataMock.mockReturnValue(designWithTopic);
     existsSyncMock.mockReturnValue(true);
-    runClaudeTaskJsonMock.mockReturnValue(
+    runAgentTaskJsonMock.mockReturnValue(
       makeProposal({
         templateDecision: {
           action: "new",
@@ -243,11 +297,15 @@ describe("designContentStructureCommand", () => {
           reasoning: "collides on purpose for this test",
           newTemplateBrief: "# brief",
         },
-      })
+      }),
     );
 
-    await expect(designContentStructureCommand(slug)).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("already exists"));
+    await expect(designContentStructureCommand(slug)).rejects.toThrow(
+      "process.exit(1)",
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("already exists"),
+    );
     expect(mkdirSyncMock).not.toHaveBeenCalled();
     expect(writeProjectDataMock).not.toHaveBeenCalled();
     expect(saveDesignDataMock).not.toHaveBeenCalled();
@@ -257,7 +315,7 @@ describe("designContentStructureCommand", () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     const design = structuredClone(designWithTopic);
     readDesignDataMock.mockReturnValue(design);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
@@ -273,13 +331,18 @@ describe("designContentStructureCommand", () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     const design = structuredClone(designWithTopic);
     readDesignDataMock.mockReturnValue(design);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
     const savedDesign = saveDesignDataMock.mock.calls[0][1] as DesignData;
-    const platforms = savedDesign.phases[0].topics![0].contentStructures![0].platforms;
-    expect(platforms?.youtube).toEqual({ title: "YT Title", caption: "yt cap", hashtags: ["#ShortFilm"] });
+    const platforms =
+      savedDesign.phases[0].topics![0].contentStructures![0].platforms;
+    expect(platforms?.youtube).toEqual({
+      title: "YT Title",
+      caption: "yt cap",
+      hashtags: ["#ShortFilm"],
+    });
     expect(platforms?.instagram.caption).toBe("ig cap");
     expect(platforms?.tiktok.hashtags).toEqual(["#FilmTok"]);
   });
@@ -287,11 +350,11 @@ describe("designContentStructureCommand", () => {
   it("asks for per-platform packaging (YouTube title, Instagram, TikTok) in the prompt", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(designWithTopic);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
-    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
     expect(prompt).toContain("YouTube");
     expect(prompt).toContain("Instagram");
     expect(prompt).toContain("TikTok");
@@ -301,11 +364,11 @@ describe("designContentStructureCommand", () => {
   it("requires frame extraction before finalizing content (allowFrameVerification: true)", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(designWithTopic);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
-    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
     expect(prompt).toContain("you must pull real frames from the source video");
     expect(prompt).toContain("ffmpeg");
     expect(prompt).not.toContain("Do NOT claim something is 'frame-verified'");
@@ -314,11 +377,11 @@ describe("designContentStructureCommand", () => {
   it("embeds the literal, unambiguous project directory path for frame output", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(designWithTopic);
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug);
 
-    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
     expect(prompt).toContain(`/projects/${slug}/.frame-check`);
     expect(prompt).not.toContain("<project directory>");
   });
@@ -326,11 +389,11 @@ describe("designContentStructureCommand", () => {
   it("scopes the prompt to a single topic when topicId is given", async () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(structuredClone(designWithTwoTopics));
-    runClaudeTaskJsonMock.mockReturnValue(makeProposal());
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
 
     await designContentStructureCommand(slug, "topic-b");
 
-    const prompt = runClaudeTaskJsonMock.mock.calls[0][0] as string;
+    const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
     expect(prompt).toContain("topic-b");
     expect(prompt).toContain("Generic Topic B");
     expect(prompt).not.toContain("topic-a");
@@ -344,15 +407,23 @@ describe("designContentStructureCommand", () => {
     ];
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(design);
-    runClaudeTaskJsonMock.mockReturnValue(
+    runAgentTaskJsonMock.mockReturnValue(
       makeProposal({
         contentStructuresByTopic: [
           {
             topicId: "topic-b",
-            contentStructures: [{ variant: "new-one", hook: "h2", bridge: "b2", content: "c2", cta: "cta2" }],
+            contentStructures: [
+              {
+                variant: "new-one",
+                hook: "h2",
+                bridge: "b2",
+                content: "c2",
+                cta: "cta2",
+              },
+            ],
           },
         ],
-      })
+      }),
     );
 
     await designContentStructureCommand(slug, "topic-b");
@@ -369,8 +440,12 @@ describe("designContentStructureCommand", () => {
     readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
     readDesignDataMock.mockReturnValue(designWithTopic);
 
-    await expect(designContentStructureCommand(slug, "does-not-exist")).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('"does-not-exist" not found'));
-    expect(runClaudeTaskJsonMock).not.toHaveBeenCalled();
+    await expect(
+      designContentStructureCommand(slug, "does-not-exist"),
+    ).rejects.toThrow("process.exit(1)");
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"does-not-exist" not found'),
+    );
+    expect(runAgentTaskJsonMock).not.toHaveBeenCalled();
   });
 });

@@ -1,11 +1,96 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { readDesignData, saveDesignData, type ContentStructure, type Topic } from "../lib/design";
-import { runClaudeTaskJson } from "../lib/claude-task";
-import { imagesDir, projectDir, readProjectData, requireProjectDir, videoDir, type ProjectData } from "../lib/project";
+import {
+  readDesignData,
+  saveDesignData,
+  type ContentStructure,
+  type Topic,
+} from "../lib/design";
+import { runAgentTaskJson } from "../lib/agent/runner";
+import type { AgentName } from "../lib/agent/types";
+import {
+  finalVideoDir,
+  finalVideoPath,
+  imagesDir,
+  projectDir,
+  readProjectData,
+  requireProjectDir,
+  videoDir,
+  type ProjectData,
+} from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 import { readTemplateManifest } from "./design-edit-copy";
 import type { TemplateManifest } from "../../src/templates/contract";
+
+// Purely mechanical -- no LLM call. Used by `design build --finalize` to
+// re-extract an already-approved proxy at full native resolution, and only
+// there: everything it needs (exact in/out points, exact destination) is
+// already locked from the proxy phase, so there's no judgment left to make.
+function extractClip(options: {
+  sourceVideoPath: string;
+  startTimestamp: string;
+  endTimestamp: string;
+  destination: string;
+  capTo720p: boolean;
+}): void {
+  const {
+    sourceVideoPath,
+    startTimestamp,
+    endTimestamp,
+    destination,
+    capTo720p,
+  } = options;
+  const args = [
+    "-y",
+    "-ss",
+    startTimestamp,
+    "-to",
+    endTimestamp,
+    "-i",
+    sourceVideoPath,
+  ];
+  if (capTo720p) {
+    args.push("-vf", "scale=-2:720", "-preset", "veryfast", "-crf", "23");
+  } else {
+    // High-fidelity intermediate, matching this project's own render-config
+    // convention (see remotion.config.ts) for a lossless-ish extraction.
+    args.push("-c:v", "libx264", "-crf", "12", "-preset", "slow");
+  }
+  args.push(destination);
+  execFileSync("ffmpeg", args, { stdio: "pipe" });
+}
+
+// Remotion's staticFile() takes a path relative to public/, not an absolute
+// filesystem path -- e.g. "Projects/<slug>/Assets/Video/<id>.mp4", matching
+// how every existing composition already references its assets.
+function toStaticFileRelative(absolutePath: string): string {
+  const publicDir = path.resolve(process.cwd(), "public");
+  return path.relative(publicDir, absolutePath).split(path.sep).join("/");
+}
+
+// Purely mechanical, like extractClip -- swaps the proxy's staticFile()
+// path for the final's, everywhere it appears. Safe even if the composition
+// follows the common pattern of one named constant read by several
+// Sequence/OffthreadVideo blocks: replacing the one string literal updates
+// every usage at once, since they all reference the same value.
+function swapCompositionClipReference(
+  compositionFilePath: string,
+  oldRelativePath: string,
+  newRelativePath: string,
+): void {
+  const text = fs.readFileSync(compositionFilePath, "utf-8");
+  if (!text.includes(oldRelativePath)) {
+    throw new Error(
+      `${compositionFilePath} doesn't reference "${oldRelativePath}" -- it may have been hand-edited ` +
+        `since design build ran. Not touching it automatically; update its staticFile() path by hand.`,
+    );
+  }
+  fs.writeFileSync(
+    compositionFilePath,
+    text.split(oldRelativePath).join(newRelativePath),
+  );
+}
 
 export type BuildProposal = {
   compositionFile: string;
@@ -15,7 +100,6 @@ export type BuildProposal = {
     resolutionMatches: boolean;
     durationMatches: boolean;
     filesExist: boolean;
-    framesLookCorrect: boolean;
     notes: string;
   };
 };
@@ -30,11 +114,12 @@ export function buildBuildPrompt(
   templateManifest: TemplateManifest,
   projectDirPath: string,
   templateDirPath: string,
-  feedback?: string
+  feedback?: string,
 ): string {
   const editCopy = structure.editCopy!;
   const firstTimestamp = editCopy.rows[0]?.timestamp ?? "unknown";
-  const lastTimestamp = editCopy.rows[editCopy.rows.length - 1]?.timestamp ?? "unknown";
+  const lastTimestamp =
+    editCopy.rows[editCopy.rows.length - 1]?.timestamp ?? "unknown";
   const clipDestination = `${videoDir(project.slug)}/${topic.id}.mp4`;
   const hookStillDestination = `${imagesDir(project.slug)}/${topic.id}HookBG.jpg`;
 
@@ -42,7 +127,7 @@ export function buildBuildPrompt(
   lines.push(
     "You are generating the real Remotion composition for one fully-locked piece of " +
       "campaign content -- everything creative is already decided; your job is faithful " +
-      "translation into code, plus the physical media extraction it depends on."
+      "translation into code, plus the physical media extraction it depends on.",
   );
   lines.push("");
   lines.push("Locked content (fixed inputs, do not redraft):");
@@ -59,8 +144,8 @@ export function buildBuildPrompt(
         editCopy,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
   lines.push("");
   lines.push(
@@ -68,7 +153,7 @@ export function buildBuildPrompt(
       `file in ${templateDirPath} (this project's locked template) -- manifest.ts, ` +
       "HookScene.tsx, BridgeCard.tsx, CtaCard.tsx, RedFlagStamp.tsx, GlitchFlash.tsx, " +
       "theme.ts. The actual .tsx files are ground truth for exact prop NAMES, contract.ts's " +
-      "types alone aren't enough."
+      "types alone aren't enough.",
   );
   lines.push("");
   lines.push(
@@ -78,46 +163,54 @@ export function buildBuildPrompt(
       "objectPosition, a punch-zoom interpolate, Caption cue arrays. Match the structure, " +
       "not the specific content. If this is the first composition built for this project, " +
       "there's nothing to reference yet -- construct the wiring directly from contract.ts's " +
-      "prop types and the template's component files instead."
+      "prop types and the template's component files instead.",
   );
   lines.push("");
-  lines.push(`Read ${projectDirPath}/Campaign/project.json for videoPath and campaignDays.`);
+  lines.push(
+    `Read ${projectDirPath}/Campaign/project.json for videoPath and campaignDays.`,
+  );
   lines.push("");
   lines.push(
     "Read the project's SRT/*.words.json NARROWLY -- grep/query only entries inside " +
       `editCopy's span (${firstTimestamp} to ${lastTimestamp}). Never read the whole file -- ` +
       "a feature-length source can hold tens of thousands of word entries for a ~60-90s " +
-      "slice you actually need."
+      "slice you actually need.",
   );
   lines.push("");
-  lines.push("Extract the real clip -- hard constraints, not suggestions:");
   lines.push(
-    "1. Source is ALWAYS project.json's videoPath -- never reuse anything under a " +
-      ".frame-check/ folder from an earlier stage; those were capped to 720p for the " +
-      "model's own inspection only, never meant to back a final asset."
+    "Extract a 720p REVIEW PROXY -- hard constraints, not suggestions. This is deliberately " +
+      "not the final-quality clip: fast to extract, fast to encode, cheap for you and the " +
+      "human to inspect. Full native resolution only happens later, once the human approves " +
+      "this proxy and runs `design build --finalize` -- a separate, mechanical, non-LLM step.",
   );
   lines.push(
-    "2. Full native resolution, no scale flag. ffprobe the source first, match the " +
-      "composition's width/height/fps to what's actually there -- don't assume 1080x1920 " +
-      "or 30fps."
+    "1. Source is ALWAYS project.json's videoPath -- never reuse anything under a " +
+      ".frame-check/ folder from an earlier stage; those were for the model's own " +
+      "inspection only, never meant to back any asset, proxy or final.",
+  );
+  lines.push(
+    '2. Scale to 720p on the long edge (ffmpeg -vf "scale=-1:720" if landscape, or the ' +
+      "equivalent for the source's orientation). Confirm the source's real fps with ffprobe " +
+      "and match the composition's fps to it -- don't assume 30fps -- but resolution stays " +
+      "capped at 720p for this proxy pass.",
   );
   lines.push(
     `3. One continuous span covering editCopy's full range (${firstTimestamp} to ` +
       `${lastTimestamp}). editCopy's in/out points are already-verified ground truth -- ` +
-      "don't re-verify or second-guess them."
+      "don't re-verify or second-guess them.",
   );
   lines.push(`4. Write it to ${clipDestination}.`);
   lines.push(
     "5. Stay landscape at this stage -- vertical framing is a COMPOSITION-time concern " +
       "(objectFit: cover + objectPosition on the video element, canvas sized to the " +
-      "source's native resolution), never baked into the extracted file itself."
+      "source's native resolution once finalized), never baked into the extracted file itself.",
   );
   lines.push("");
   lines.push(
     templateManifest.components.hookScene
       ? `This template's HOOK needs a still background -- extract one frame -> ${hookStillDestination}.`
       : "This template has no still-hook beat (hookScene is not in its components) -- do NOT " +
-        "generate a hook-still image, nothing in the composition would reference it."
+          "generate a hook-still image, nothing in the composition would reference it.",
   );
   lines.push("");
   lines.push(
@@ -126,43 +219,44 @@ export function buildBuildPrompt(
       "following the same pattern as the reference composition above (or, if there wasn't " +
       "one, standard Remotion practice): frame math from editCopy's real timestamps, one " +
       "cut/Sequence per editCopy row (its row count is already the verified real shot count -- " +
-      "don't merge or split rows), captions from the words.json slice you queried."
+      "don't merge or split rows), captions from the words.json slice you queried.",
   );
   lines.push(
     "editCopy's objectPosition/effect values are already-verified ground truth from an earlier " +
       "frame-checking pass -- use them exactly as given. Do NOT recompute crop math, do NOT " +
       "second-guess a value that looks off, do NOT render test stills to check it. If a value " +
       "genuinely seems wrong once you see the extracted clip, say so plainly in this response's " +
-      "notes and move on -- don't try to fix it here."
+      "notes and move on -- don't try to fix it here.",
   );
   lines.push("");
   lines.push(
-    "Before responding, verify your own work -- this is a bounded spot-check, not a second " +
-      "editing pass:"
+    "Before responding, verify your own work -- metadata only, no frame-viewing at this stage:",
   );
   lines.push(
-    "1. ffprobe the extracted clip -- resolution matches the source's native resolution " +
-      "(not 720p), duration roughly matches editCopy's total span."
-  );
-  lines.push("2. Confirm every path the new .tsx references actually exists on disk.");
-  lines.push(
-    "3. Extract 2-3 frames TOTAL from the NEWLY EXTRACTED clip (not per shot, not the whole " +
-      "cut list re-checked one row at a time) and look at them -- confirm real content, " +
-      "roughly correctly framed."
+    "1. ffprobe the extracted clip -- resolution is ~720p on the long edge (this is the " +
+      "proxy, not the final asset), duration roughly matches editCopy's total span.",
   );
   lines.push(
-    "Fix anything cheap (a typo'd path, a missed file) before responding. Do not iterate on " +
-      "crop values, do not render additional test stills beyond the 2-3 above, do not repeat " +
-      "the frame-checking edit-copy already did -- report problems in notes instead of trying " +
-      "to solve them here. That kind of unbounded iteration is what made an earlier run take " +
-      "30 minutes and far more tokens than it needed to."
+    "2. Confirm every path the new .tsx references actually exists on disk.",
+  );
+  lines.push(
+    "Do NOT extract or view any frames from the new clip for this check -- a human reviews " +
+      "the actual composition in Remotion Studio next, that's the real visual check for a " +
+      "proxy. Do not iterate on crop values, do not repeat the frame-checking edit-copy " +
+      "already did -- report problems in notes instead of trying to solve them here. That " +
+      "kind of unbounded iteration is what made an earlier run take 30 minutes and far more " +
+      "tokens than it needed to.",
   );
   if (feedback) {
     lines.push("");
-    lines.push(`Revise your previous proposal based on this feedback: ${feedback}`);
+    lines.push(
+      `Revise your previous proposal based on this feedback: ${feedback}`,
+    );
   }
   lines.push("");
-  lines.push("Respond with ONLY a JSON object, no markdown fences, no commentary, matching:");
+  lines.push(
+    "Respond with ONLY a JSON object, no markdown fences, no commentary, matching:",
+  );
   lines.push(
     `{
   "compositionFile": string,
@@ -172,10 +266,9 @@ export function buildBuildPrompt(
     "resolutionMatches": boolean,
     "durationMatches": boolean,
     "filesExist": boolean,
-    "framesLookCorrect": boolean,
     "notes": string
   }
-}`
+}`,
   );
   return lines.join("\n");
 }
@@ -189,7 +282,9 @@ function render(proposal: BuildProposal): string {
   return [
     `Composition: ${proposal.compositionFile}`,
     `Extracted clip: ${proposal.extractedClip}`,
-    proposal.hookStill ? `Hook still: ${proposal.hookStill}` : "Hook still: not needed for this template",
+    proposal.hookStill
+      ? `Hook still: ${proposal.hookStill}`
+      : "Hook still: not needed for this template",
     "",
     "Self-verification:",
     JSON.stringify(proposal.selfVerification, null, 2),
@@ -200,13 +295,19 @@ function render(proposal: BuildProposal): string {
   ].join("\n");
 }
 
-export async function designBuildCommand(slug: string, topicId: string): Promise<void> {
+export async function designBuildCommand(
+  slug: string,
+  topicId: string,
+  options: { finalize?: boolean; agent?: AgentName } = {},
+): Promise<void> {
   requireProjectDir(slug);
   const project = readProjectData(slug);
   const design = readDesignData(slug);
 
   if (!project.template) {
-    console.error(`\nNo template set for ${slug} -- run \`cutshort design content-structure ${slug}\` first.`);
+    console.error(
+      `\nNo template set for ${slug} -- run \`cutshort design content-structure ${slug}\` first.`,
+    );
     process.exit(1);
   }
 
@@ -224,14 +325,14 @@ export async function designBuildCommand(slug: string, topicId: string): Promise
   if (structures.length === 0) {
     console.error(
       `\nTopic "${topicId}" has no locked content structure yet -- run ` +
-        `\`cutshort design content-structure ${slug} --topic ${topicId}\` first.`
+        `\`cutshort design content-structure ${slug} --topic ${topicId}\` first.`,
     );
     process.exit(1);
   }
   if (structures.length > 1) {
     console.error(
       `\nTopic "${topicId}" has ${structures.length} content structures saved -- build needs ` +
-        `exactly one locked variant. Trim design.json down to the one you're building before running this.`
+        `exactly one locked variant. Trim design.json down to the one you're building before running this.`,
     );
     process.exit(1);
   }
@@ -240,31 +341,120 @@ export async function designBuildCommand(slug: string, topicId: string): Promise
   if (!structure.editCopy) {
     console.error(
       `\nTopic "${topicId}" has no locked edit copy yet -- run ` +
-        `\`cutshort design edit-copy ${slug} --topic ${topicId}\` first.`
+        `\`cutshort design edit-copy ${slug} --topic ${topicId}\` first.`,
     );
     process.exit(1);
   }
 
+  if (!options.finalize && structure.build?.quality === "final") {
+    console.error(
+      `\nTopic "${topicId}" is already finalized (${structure.build.extractedClip}) -- ` +
+        `re-running \`design build\` without --finalize would overwrite it with a fresh 720p ` +
+        `proxy. If you really want to redo it from scratch, delete this topic's contentStructures[0].build ` +
+        `entry in Campaign/design.json first.`,
+    );
+    process.exit(1);
+  }
+
+  if (options.finalize) {
+    if (!structure.build) {
+      console.error(
+        `\nTopic "${topicId}" hasn't been built yet -- run \`cutshort design build ${slug} --topic ${topicId}\` first.`,
+      );
+      process.exit(1);
+    }
+    if (structure.build.quality === "final") {
+      console.error(
+        `\nTopic "${topicId}" is already finalized: ${structure.build.extractedClip}`,
+      );
+      process.exit(1);
+    }
+
+    const firstTimestamp = structure.editCopy.rows[0]?.timestamp;
+    const lastTimestamp =
+      structure.editCopy.rows[structure.editCopy.rows.length - 1]?.timestamp;
+    if (!firstTimestamp || !lastTimestamp) {
+      console.error(
+        `\nTopic "${topicId}"'s edit copy has no rows -- can't determine the clip range.`,
+      );
+      process.exit(1);
+    }
+
+    const finalDestination = finalVideoPath(slug, topicId);
+    fs.mkdirSync(finalVideoDir(slug), { recursive: true });
+
+    console.log(
+      `\nFinalizing ${topicId}: extracting full-resolution clip to ${finalDestination}...`,
+    );
+    extractClip({
+      sourceVideoPath: project.videoPath,
+      startTimestamp: firstTimestamp,
+      endTimestamp: lastTimestamp,
+      destination: finalDestination,
+      capTo720p: false,
+    });
+
+    swapCompositionClipReference(
+      structure.build.compositionFile,
+      toStaticFileRelative(structure.build.extractedClip),
+      toStaticFileRelative(finalDestination),
+    );
+
+    structure.build.finalClip = finalDestination;
+    structure.build.quality = "final";
+    saveDesignData(slug, design!);
+    console.log(
+      `\nFinalized -- composition now references the full-resolution clip.`,
+    );
+    console.log(
+      `  Proxy left in place (not deleted): ${structure.build.extractedClip}`,
+    );
+    console.log(`  Final: ${finalDestination}`);
+    console.log(
+      `\nRun \`npm run dev\` to preview, then render to public/Projects/${slug}/Rendered/${topicId}.mp4.\n`,
+    );
+    return;
+  }
+
   const templateManifest = await readTemplateManifest(project.template);
-  const templateDirPath = path.resolve(process.cwd(), "src", "templates", project.template);
+  const templateDirPath = path.resolve(
+    process.cwd(),
+    "src",
+    "templates",
+    project.template,
+  );
 
   const proposal = await reviewLoop(
     (feedback) =>
-      runClaudeTaskJson<BuildProposal>(
-        buildBuildPrompt(foundTopic!, structure, project, templateManifest, projectDir(slug), templateDirPath, feedback),
-        projectDir(slug)
+      runAgentTaskJson<BuildProposal>(
+        buildBuildPrompt(
+          foundTopic!,
+          structure,
+          project,
+          templateManifest,
+          projectDir(slug),
+          templateDirPath,
+          feedback,
+        ),
+        projectDir(slug),
+        options.agent,
       ),
-    render
+    render,
   );
 
   structure.build = {
     compositionFile: proposal.compositionFile,
     extractedClip: proposal.extractedClip,
     hookStill: proposal.hookStill,
+    quality: "proxy",
   };
 
   saveDesignData(slug, design!);
-  console.log(`\nSaved build output for topic ${topicId} to Campaign/design.json and Campaign/design.md`);
+  console.log(
+    `\nSaved build output (720p proxy) for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
+  );
   console.log(`\nRun \`npm run dev\` to preview in Remotion Studio.`);
-  console.log(`\nNext: render to public/Projects/${slug}/Rendered/${topicId}.mp4 (render stage not yet built)\n`);
+  console.log(
+    `\nOnce approved, run \`cutshort design build ${slug} --topic ${topicId} --finalize\` for full resolution.\n`,
+  );
 }

@@ -1,13 +1,13 @@
 # Cut-Short
 
-**An agentic workflow that turns long-form video into short-form social content** — a deterministic pipeline that hands off to Claude Code, running as a real scoped agent, for the judgment calls that can't be hardcoded: does this footage actually show what the copy claims, is the crop still valid three seconds into the shot, did the render actually produce what the code says it should.
+**An agentic workflow that turns long-form video into short-form social content** — a deterministic pipeline that hands off to Claude Code or Codex, running as a real scoped agent, for the judgment calls that can't be hardcoded: does this footage actually show what the copy claims, is the crop still valid three seconds into the shot, did the render actually produce what the code says it should.
 
-This is a case study in a specific architectural question that most "AI tool" projects skip past: **when should an LLM run the pipeline, and when should the pipeline run the LLM?** Cut-Short's answer is a deliberate split — a hardcoded, auditable workflow for the parts that need predictability and a human approval gate, and a genuinely agentic Claude Code call for the parts that need dynamic, can't-know-ahead-of-time judgment. Not "an AI agent" (that would overclaim — the pipeline's structure is fixed, not model-decided) and not "a script that pings an LLM" (that undersells it — the agentic steps really do decide their own tool use, the same way an interactive Claude Code session does, just scoped to one task).
+This is a case study in a specific architectural question that most "AI tool" projects skip past: **when should an LLM run the pipeline, and when should the pipeline run the LLM?** Cut-Short's answer is a deliberate split — a hardcoded, auditable workflow for the parts that need predictability and a human approval gate, and a genuinely agentic coding-agent call for the parts that need dynamic, can't-know-ahead-of-time judgment. Not "an AI agent" (that would overclaim — the pipeline's structure is fixed, not model-decided) and not "a script that pings an LLM" (that undersells it — the agentic steps really do decide their own tool use, the same way an interactive coding-agent session does, just scoped to one task).
 
 ## What this demonstrates
 
 - **An architecture, not just a feature.** The workflow/agent split below is the actual design contribution — most of these projects either hardcode everything (brittle) or hand the whole thing to a model (unpredictable, expensive, hard to put a human checkpoint in). This does neither.
-- **Footage selection is driven by the campaign design, not the other way around.** The pipeline doesn't cut clips first and caption them after — `design` runs before `scan`/`clip` and drafts the *whole* campaign package: the hook/bridge/reveal narrative, plus the per-platform title, description, and hashtags for YouTube Shorts, Instagram Reels, and TikTok. It's informed by the script (scene numbers, stage directions, shot descriptions — structural information the transcript alone can't give you) and the objective captured back in `init`. Only once that design exists does `scan` go looking for footage that actually serves it.
+- **Footage selection is driven by the campaign design, not the other way around.** The pipeline doesn't cut clips first and caption them after — `design` runs before `scan`/`clip` and drafts the _whole_ campaign package: the hook/bridge/reveal narrative, plus the per-platform title, description, and hashtags for YouTube Shorts, Instagram Reels, and TikTok. It's informed by the script (scene numbers, stage directions, shot descriptions — structural information the transcript alone can't give you) and the objective captured back in `init`. Only once that design exists does `scan` go looking for footage that actually serves it.
 - **Collaborative by default, not autonomous by default.** Every agentic stage is built to propose something — a draft campaign design, a candidate cut, a crop — and check it with you, rather than run the whole pipeline unattended end to end. It's fully capable of running autonomously across every stage if you explicitly want that, but that's an opt-in, never the default.
 - **A deliberate token-optimization strategy, not an afterthought.** Vision tokens scale directly with frame count and resolution — asking a model to "watch" a full-length video by sampling frames throughout gets expensive in direct proportion to how long the source footage is, and that cost hits before a single useful clip exists. Cut-Short's `scan` stage is architected to avoid that cost structure entirely: the transcript is searched as plain text first — free, exact, zero vision tokens — and only the small number of resulting candidate windows, seconds of footage rather than the whole file, ever get frames extracted and sent to a model. The expensive step only ever runs on the narrow slice that's already been shown to matter.
 
@@ -16,27 +16,30 @@ This is a case study in a specific architectural question that most "AI tool" pr
 **Two layers, on purpose:**
 
 - **Outer layer — workflow.** A Node CLI (`cli/`) hardcodes the pipeline's stage order and stops for human approval before the expensive step (generation/render). Predictable cost, an auditable sequence, and a real checkpoint before anything gets produced — none of that survives if the whole thing is one autonomous loop.
-- **Inner layer — agent.** At the specific stages that need judgment, the CLI shells out to Claude Code headlessly:
+- **Inner layer — agent.** At the specific stages that need judgment, the CLI shells out to Claude Code or Codex headlessly (Claude is the default; use `--agent codex` to switch):
 
   ```
   claude -p "<scoped task prompt>" --output-format json \
       --dangerously-skip-permissions --add-dir <project folder>
+
+  codex exec "<scoped task prompt>" --ephemeral \
+      --dangerously-bypass-approvals-and-sandbox -C <repo folder>
   ```
 
-  Claude Code decides its own steps within that call — search the transcript, extract frames, look at them, report back — the same loop an interactive session runs, just scoped to one bounded task and one directory. No hand-rolled tool-use loop, no custom LLM API integration: Claude Code already built that, so Cut-Short's job is to ask well-scoped questions and grant the right access, not reimplement orchestration that already exists.
+  The selected agent decides its own steps within that call — search the transcript, extract frames, look at them, report back — the same loop an interactive session runs, just scoped to one bounded task. No hand-rolled tool-use loop or custom LLM API integration: the coding-agent CLIs already provide that, so Cut-Short's job is to ask well-scoped questions and grant the right access, not reimplement orchestration that already exists.
 
 **Pipeline stages:**
 
-| Stage | What it does | Status |
-|---|---|---|
-| `init` | Interactive requirements gathering → scaffolds the project folder + `Campaign/objective.md` | Shipped |
-| `transcribe` | Runs `faster-whisper` on the source video, saves SRT + word timestamps | Shipped |
-| `design` | Drafts the campaign design against a proven formula: the hook/bridge/reveal narrative, informed by the script (not just the transcript), plus per-platform title, description, and hashtags for YouTube Shorts, Instagram Reels, and TikTok | Roadmap |
-| `scan` | Text-searches the transcript for footage matching the campaign design, then frame-verifies each candidate | Roadmap |
-| `clip` | Confirms in/out points and crop, extracts the sub-clip | Roadmap |
-| `build` | Generates the Remotion composition wiring clip + campaign design into the 5-beat template | Roadmap |
-| `render` | Runs the Remotion render | Roadmap |
-| `verify` | Pulls frames from the actual rendered output and checks them against intent | Roadmap |
+| Stage        | What it does                                                                                                                                                                                                                                | Status  |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `init`       | Interactive requirements gathering → scaffolds the project folder + `Campaign/objective.md`                                                                                                                                                 | Shipped |
+| `transcribe` | Runs `faster-whisper` on the source video, saves SRT + word timestamps                                                                                                                                                                      | Shipped |
+| `design`     | Drafts the campaign design against a proven formula: the hook/bridge/reveal narrative, informed by the script (not just the transcript), plus per-platform title, description, and hashtags for YouTube Shorts, Instagram Reels, and TikTok | Roadmap |
+| `scan`       | Text-searches the transcript for footage matching the campaign design, then frame-verifies each candidate                                                                                                                                   | Roadmap |
+| `clip`       | Confirms in/out points and crop, extracts the sub-clip                                                                                                                                                                                      | Roadmap |
+| `build`      | Generates the Remotion composition wiring clip + campaign design into the 5-beat template                                                                                                                                                   | Roadmap |
+| `render`     | Runs the Remotion render                                                                                                                                                                                                                    | Roadmap |
+| `verify`     | Pulls frames from the actual rendered output and checks them against intent                                                                                                                                                                 | Roadmap |
 
 **Recommended: review the plan in Claude Code's Plan Mode before `render` runs.** `render` is the one genuinely expensive, hard-to-undo step in the pipeline — the workflow already stops for approval there by design (see below), and a last human pass over the plan (which clip, which crop, which campaign design) in Plan Mode before committing to it is a cheap extra checkpoint on top of that gate.
 
@@ -57,22 +60,24 @@ Everything a project needs lives in this one gitignored tree — generated at ru
 ## 2. Features
 
 **Shipped:**
+
 - `cutshort init` — interactive requirements gathering (objective, platforms, campaign length, script/video paths) → scaffolds the full `public/Projects/<slug>/` tree (`Assets/Video`, `Assets/Images`, `Assets/Music/SFX`, `Script/`, `SRT/`, `Campaign/`) and writes a formatted `Campaign/objective.md` plus a machine-readable `Campaign/project.json` that later stages read back. Source files are referenced by absolute path, never copied — duplicating multi-gigabyte source video costs real time and disk space for zero processing benefit.
 - `cutshort transcribe <slug>` — runs `faster-whisper` (offline, `local_files_only=True` against an already-cached model size) on the project's source video, writes `SRT/<video>.srt` and `SRT/<video>.words.json` (word-level timestamps). Re-validates the source video/script paths from `project.json` still exist before running.
 - The 5-beat Remotion rendering template and its full shared component library
 - Frame-accurate crop/timing decisions as a hard rule — every cut, crop, and timing call gets checked against real extracted frames before it's locked, never inferred from a transcript alone
-- Post-render self-verification — every render gets frames pulled from the *actual output file* and inspected, on the principle that a clean render log is not proof anything actually worked
+- Post-render self-verification — every render gets frames pulled from the _actual output file_ and inspected, on the principle that a clean render log is not proof anything actually worked
 
 **Roadmap:**
+
 - The `design` → `verify` pipeline stages above
-- `runClaudeTask` — the shared Claude Code agent-invocation layer those stages call into
+- A shared provider-neutral invocation layer for Claude Code and Codex
 - Explicit speaker/on-screen-mismatch handling — a real, recurring case in intercut footage (the person talking isn't always who's in frame) that needs to be surfaced to a human, not silently resolved either way
 
 ## 3. Prerequisites
 
 - **Node.js** + npm
 - **ffmpeg**, on `PATH` — frame extraction, and required by Remotion's `OffthreadVideo` at render time
-- **Claude Code**, installed and logged in — this is how every agentic stage runs. No separate API key path by design: a direct API integration would mean building and maintaining a tool-use loop, tool schemas, and prompt orchestration by hand, all of which Claude Code already provides.
+- **Claude Code or Codex CLI**, installed and logged in — Claude is the default; pass `--agent codex` to an agent-powered `design` command to use Codex. No separate API integration is needed because both CLIs already provide the tool-use loop.
 - **Python 3** + `faster-whisper` — needed once the `transcribe` stage lands
 
 ## 4. How to Run
