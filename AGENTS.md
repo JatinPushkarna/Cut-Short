@@ -110,6 +110,18 @@ stages without a human touching a terminal:**
    to the same pending-candidate file step 1 would have produced, no
    agent call, no wasted tokens reproducing text that's already known.
 
+**`build` specifically needs a real look, not just a green checklist.**
+Its proposal prints a self-verification table (resolution, duration,
+files exist, root registration) — that table can pass completely while
+the crop, pan, captions, or timing are still wrong, because none of those
+checks are visual; the build prompt itself explicitly tells the
+generating agent not to view frames at this stage. Don't treat an
+all-green table as approval-ready. The real check is `npm run dev` and
+actually watching the composition in Remotion Studio — surface that step
+to the user and wait for them to say it looks right before running
+`design approve --stage build`, the same way you would for any other
+stage's content.
+
 None of this changes the absolutes: never hand-write `design.json`
 directly, and never fabricate or simulate an approval the user didn't
 actually give. The point of the flow above is that there's a real, correct
