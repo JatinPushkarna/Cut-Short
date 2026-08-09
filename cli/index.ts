@@ -74,7 +74,9 @@ program
   )
   .option(
     "--retries <count>",
-    "Additional agent attempts after a failed proposal attempt (0-3)",
+    "Additional agent attempts after a failed proposal attempt (0-3). " +
+      "Ignored by build: that stage has real side effects (writes the composition, " +
+      "runs ffmpeg) and always runs once, regardless of this flag.",
     "3",
   )
   .option(

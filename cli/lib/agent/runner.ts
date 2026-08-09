@@ -23,6 +23,16 @@ function executionError(agent: AgentName, error: unknown): Error {
     return new Error(`${agent} is not installed or is not available on PATH.`);
   }
 
+  // A provider (e.g. Claude's is_error envelope check) can already throw a
+  // clear, agent-specific message of its own -- pass it through as-is rather
+  // than wrapping it in a second "<agent> task failed:" prefix on top of it.
+  if (
+    error instanceof Error &&
+    /task (failed|returned invalid JSON)/.test(error.message)
+  ) {
+    return error;
+  }
+
   const stderr = cause.stderr?.toString().trim();
   return new Error(
     `${agent} task failed: ${stderr || cause.message || String(error)}`,

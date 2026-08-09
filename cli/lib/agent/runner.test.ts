@@ -40,6 +40,15 @@ describe("agent runner", () => {
     expect(codexProvider.run).toHaveBeenCalledTimes(1);
   });
 
+  it("doesn't double-wrap a provider's own already-formatted error", () => {
+    vi.spyOn(claudeProvider, "run").mockImplementation(() => {
+      throw new Error("Claude Code task failed: boom");
+    });
+    expect(() =>
+      runAgentTask("prompt", "/project", "claude", { retries: 0 }),
+    ).toThrow(/^Claude Code task failed: boom$/);
+  });
+
   it("retries a timed-out provider once and returns its later result", () => {
     const timeout = Object.assign(new Error("timed out"), {
       code: "ETIMEDOUT",

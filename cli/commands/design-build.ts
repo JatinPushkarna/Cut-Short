@@ -528,6 +528,12 @@ export async function designBuildCommand(
         ),
         projectDir(slug),
         agent,
+        // Unlike the other stages, this agent call has real side effects --
+        // it writes the composition file and runs ffmpeg to extract the
+        // clip, not just generating text. A blind automatic retry after a
+        // partial failure risks compounding that (re-extracting, or writing
+        // over a half-finished composition) rather than cleanly redoing it,
+        // so build always runs once regardless of --retries.
         { ...options.agentOptions, retries: 0 },
       ),
     render,
