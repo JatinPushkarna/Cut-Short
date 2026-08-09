@@ -4,7 +4,11 @@ import { COLORS, fontFamily, TYPE, wrapStyle } from "./theme";
 
 // Consistent close for every daily post -- same treatment, only the
 // brand name and days-left counter change project to project / day to day.
-export const CtaCard: React.FC<CtaCardProps> = ({ daysLeft, brandName }) => {
+export const CtaCard: React.FC<CtaCardProps> = ({
+  daysLeft,
+  brandName,
+  statusText,
+}) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
   // The shared type scale targets a 2160px-wide vertical canvas. Scale only
@@ -53,17 +57,19 @@ export const CtaCard: React.FC<CtaCardProps> = ({ daysLeft, brandName }) => {
       >
         follow for the next one
       </div>
-      <div
-        style={{
-          color: COLORS.accent,
-          fontFamily,
-          ...TYPE.ctaCounter,
-          ...wrapStyle(88),
-          marginTop: 48,
-        }}
-      >
-        {daysLeft} DAYS LEFT
-      </div>
+      {(statusText || daysLeft !== undefined) && (
+        <div
+          style={{
+            color: COLORS.accent,
+            fontFamily,
+            ...TYPE.ctaCounter,
+            ...wrapStyle(88),
+            marginTop: 48,
+          }}
+        >
+          {statusText ?? `${daysLeft} DAYS LEFT`}
+        </div>
+      )}
     </AbsoluteFill>
   );
 };
