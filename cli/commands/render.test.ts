@@ -8,7 +8,7 @@ import {
   type DesignData,
 } from "../lib/design";
 import { readProjectData } from "../lib/project";
-import { renderCommand } from "./render";
+import { npxCommandForPlatform, renderCommand } from "./render";
 
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
 vi.mock("node:fs", () => ({
@@ -100,6 +100,11 @@ describe("renderCommand", () => {
     vi.restoreAllMocks();
   });
 
+  it("uses the Windows npx shim only on Windows", () => {
+    expect(npxCommandForPlatform("win32")).toBe("npx.cmd");
+    expect(npxCommandForPlatform("linux")).toBe("npx");
+  });
+
   it("exits if the topic doesn't exist", async () => {
     readDesignDataMock.mockReturnValue(makeDesign([builtStructure]));
 
@@ -159,7 +164,7 @@ describe("renderCommand", () => {
       { recursive: true },
     );
     expect(execFileSyncMock).toHaveBeenCalledWith(
-      "npx",
+      npxCommandForPlatform(),
       [
         "remotion",
         "render",

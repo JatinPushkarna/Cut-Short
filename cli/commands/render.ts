@@ -4,6 +4,12 @@ import path from "node:path";
 import { readDesignData, saveDesignData, type Topic } from "../lib/design";
 import { readProjectData, renderedDir, renderedVideoPath, requireProjectDir } from "../lib/project";
 
+// Windows exposes the npm shim as npx.cmd. execFileSync does not resolve the
+// extension itself, so invoking plain "npx" fails there with spawn ENOENT.
+export function npxCommandForPlatform(platform = process.platform): string {
+  return platform === "win32" ? "npx.cmd" : "npx";
+}
+
 // Purely mechanical -- no LLM call. `design build` already decided the
 // composition and the clip it references; this stage's only job is to run
 // Remotion's own renderer and put the output where every other stage
@@ -65,7 +71,7 @@ export async function renderCommand(slug: string, topicId: string): Promise<void
   fs.mkdirSync(renderedDir(slug), { recursive: true });
 
   console.log(`\nRendering ${compositionId} -> ${outputPath} ...`);
-  execFileSync("npx", ["remotion", "render", "src/index.ts", compositionId, outputPath], {
+  execFileSync(npxCommandForPlatform(), ["remotion", "render", "src/index.ts", compositionId, outputPath], {
     stdio: "inherit",
   });
 
