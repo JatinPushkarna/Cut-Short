@@ -18,12 +18,15 @@ describe("claudeProvider", () => {
     );
 
     expect(
-      claudeProvider.run({ prompt: "do it", projectDir: "/project" }),
+      claudeProvider.run(
+        { prompt: "do it", projectDir: "/project" },
+        { timeoutMs: 1_000 },
+      ),
     ).toBe("done");
     expect(execFileSyncMock).toHaveBeenCalledWith(
       "claude",
       expect.arrayContaining(["-p", "do it", "--add-dir", "/project"]),
-      expect.any(Object),
+      expect.objectContaining({ timeout: 1_000 }),
     );
   });
 
@@ -43,9 +46,12 @@ describe("codexProvider", () => {
   it("runs Codex headlessly from the repository root and returns stdout", () => {
     execFileSyncMock.mockReturnValue("done");
 
-    expect(codexProvider.run({ prompt: "do it", projectDir: "/project" })).toBe(
-      "done",
-    );
+    expect(
+      codexProvider.run(
+        { prompt: "do it", projectDir: "/project" },
+        { timeoutMs: 1_000 },
+      ),
+    ).toBe("done");
     expect(execFileSyncMock).toHaveBeenCalledWith(
       process.platform === "win32" ? process.execPath : "codex",
       expect.arrayContaining([
@@ -58,7 +64,7 @@ describe("codexProvider", () => {
         "--add-dir",
         "/project",
       ]),
-      expect.any(Object),
+      expect.objectContaining({ timeout: 1_000 }),
     );
   });
 });

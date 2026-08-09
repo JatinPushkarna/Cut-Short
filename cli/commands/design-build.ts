@@ -9,7 +9,7 @@ import {
   type Topic,
 } from "../lib/design";
 import { runAgentTaskJson } from "../lib/agent/runner";
-import type { AgentName } from "../lib/agent/types";
+import type { AgentName, AgentRunOptions } from "../lib/agent/types";
 import {
   finalVideoDir,
   finalVideoPath,
@@ -378,6 +378,7 @@ export async function designBuildCommand(
     skipRender?: boolean;
     agent?: AgentName;
     feedback?: string;
+    agentOptions?: AgentRunOptions;
   } = {},
 ): Promise<void> {
   requireProjectDir(slug);
@@ -527,6 +528,13 @@ export async function designBuildCommand(
         ),
         projectDir(slug),
         agent,
+        // Unlike the other stages, this agent call has real side effects --
+        // it writes the composition file and runs ffmpeg to extract the
+        // clip, not just generating text. A blind automatic retry after a
+        // partial failure risks compounding that (re-extracting, or writing
+        // over a half-finished composition) rather than cleanly redoing it,
+        // so build always runs once regardless of --retries.
+        { ...options.agentOptions, retries: 0 },
       ),
     render,
     {

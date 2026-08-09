@@ -12,7 +12,11 @@ import { designStatusCommand } from "./commands/design-status";
 import { designApproveCommand } from "./commands/design-approve";
 import { designAmendCommand } from "./commands/design-amend";
 import { renderCommand } from "./commands/render";
-import { isAgentName, type AgentName } from "./lib/agent/types";
+import {
+  isAgentName,
+  type AgentName,
+  type AgentRunOptions,
+} from "./lib/agent/types";
 
 const program = new Command();
 
@@ -64,6 +68,18 @@ program
   )
   .option("--agent <provider>", "Agent provider: claude or codex", "claude")
   .option(
+    "--agent-timeout <seconds>",
+    "Maximum time for one agent attempt in seconds",
+    "300",
+  )
+  .option(
+    "--retries <count>",
+    "Additional agent attempts after a failed proposal attempt (0-3). " +
+      "Ignored by build: that stage has real side effects (writes the composition, " +
+      "runs ffmpeg) and always runs once, regardless of this flag.",
+    "3",
+  )
+  .option(
     "--finalize",
     "build only: re-extract an already-approved 720p proxy at full native resolution (mechanical, no LLM call)",
   )
@@ -99,6 +115,8 @@ program
         finalize?: boolean;
         skipRender?: boolean;
         agent: string;
+        agentTimeout: string;
+        retries: string;
         feedback?: string;
         feedbackFile?: string;
         stage?: string;
@@ -112,6 +130,20 @@ program
         process.exit(1);
       }
       const agent: AgentName = options.agent;
+      const agentTimeoutSeconds = Number(options.agentTimeout);
+      const retries = Number(options.retries);
+      if (!Number.isInteger(agentTimeoutSeconds) || agentTimeoutSeconds <= 0) {
+        console.error("\n--agent-timeout must be a positive whole number of seconds.");
+        process.exit(1);
+      }
+      if (!Number.isInteger(retries) || retries < 0 || retries > 3) {
+        console.error("\n--retries must be a whole number from 0 to 3.");
+        process.exit(1);
+      }
+      const agentOptions: AgentRunOptions = {
+        timeoutMs: agentTimeoutSeconds * 1000,
+        retries,
+      };
 
       if (options.feedback && options.feedbackFile) {
         console.error(
@@ -129,15 +161,16 @@ program
 
       switch (step) {
         case "phases":
-          return designPhasesCommand(slug, agent, options.feedback);
+          return designPhasesCommand(slug, agent, options.feedback, agentOptions);
         case "topics":
-          return designTopicsCommand(slug, agent, options.feedback);
+          return designTopicsCommand(slug, agent, options.feedback, agentOptions);
         case "content-structure":
           return designContentStructureCommand(
             slug,
             options.topic,
             agent,
             options.feedback,
+            agentOptions,
           );
         case "edit-copy":
           if (!options.topic) {
@@ -151,6 +184,7 @@ program
             options.topic,
             agent,
             options.feedback,
+            agentOptions,
           );
         case "build":
           if (!options.topic) {
@@ -164,6 +198,7 @@ program
             skipRender: options.skipRender,
             agent,
             feedback: options.feedback,
+            agentOptions,
           });
         case "status":
           return designStatusCommand(slug, options.topic);

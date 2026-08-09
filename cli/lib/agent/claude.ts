@@ -1,5 +1,9 @@
 import { execFileSync } from "node:child_process";
-import type { AgentProvider } from "./types";
+import {
+  DEFAULT_AGENT_TIMEOUT_MS,
+  type AgentProvider,
+  type AgentRunOptions,
+} from "./types";
 
 type ClaudeEnvelope = {
   is_error: boolean;
@@ -9,7 +13,7 @@ type ClaudeEnvelope = {
 export const claudeProvider: AgentProvider = {
   name: "claude",
 
-  run({ prompt, projectDir }): string {
+  run({ prompt, projectDir }, options?: AgentRunOptions): string {
     const output = execFileSync(
       "claude",
       [
@@ -21,7 +25,11 @@ export const claudeProvider: AgentProvider = {
         "--add-dir",
         projectDir,
       ],
-      { encoding: "utf-8", maxBuffer: 20 * 1024 * 1024 },
+      {
+        encoding: "utf-8",
+        maxBuffer: 20 * 1024 * 1024,
+        timeout: options?.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS,
+      },
     );
 
     const envelope = JSON.parse(output) as ClaudeEnvelope;
