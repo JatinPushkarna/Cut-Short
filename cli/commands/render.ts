@@ -4,6 +4,26 @@ import path from "node:path";
 import { readDesignData, saveDesignData, type Topic } from "../lib/design";
 import { readProjectData, renderedDir, renderedVideoPath, requireProjectDir } from "../lib/project";
 
+// Invoke Remotion's actual JS entry point with node directly, rather than
+// through the npx wrapper. On Windows, npx resolves to the npx.cmd shim,
+// which execFileSync cannot launch (spawnSync ... EINVAL, confirmed by
+// hand -- passing shell: true "fixes" it but reintroduces the argument-
+// injection risk Node itself warns about, and isn't needed here). This is
+// the same class of problem the Codex provider's own Windows fix already
+// worked around by calling node directly (see cli/lib/agent/codex.ts) --
+// and unlike that fix, this one isn't even platform-conditional: calling
+// node on the CLI's own JS file works identically everywhere, so there
+// was never a reason to go through npx/npm at all.
+export function remotionCliPath(): string {
+  return path.resolve(
+    process.cwd(),
+    "node_modules",
+    "@remotion",
+    "cli",
+    "remotion-cli.js",
+  );
+}
+
 // Purely mechanical -- no LLM call. `design build` already decided the
 // composition and the clip it references; this stage's only job is to run
 // Remotion's own renderer and put the output where every other stage
@@ -65,9 +85,11 @@ export async function renderCommand(slug: string, topicId: string): Promise<void
   fs.mkdirSync(renderedDir(slug), { recursive: true });
 
   console.log(`\nRendering ${compositionId} -> ${outputPath} ...`);
-  execFileSync("npx", ["remotion", "render", "src/index.ts", compositionId, outputPath], {
-    stdio: "inherit",
-  });
+  execFileSync(
+    process.execPath,
+    [remotionCliPath(), "render", "src/index.ts", compositionId, outputPath],
+    { stdio: "inherit" },
+  );
 
   saveDesignData(slug, design!);
   console.log(`\nRendered: ${outputPath}`);
