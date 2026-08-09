@@ -677,6 +677,30 @@ describe("designBuildCommand", () => {
       expect(args).not.toContain("scale=-2:720");
     });
 
+    it("uses the first and last timestamped video rows when card beats surround the footage", async () => {
+      readProjectDataMock.mockReturnValue(
+        makeProject({ videoPath: "/full/source.mp4" }),
+      );
+      const design = makeProxyDesign();
+      design.phases[0].topics![0].contentStructures![0].editCopy!.rows = [
+        { timestamp: "Hook beat", action: "hook" },
+        { timestamp: "Bridge beat", action: "bridge" },
+        { timestamp: "00:04:50.36-00:04:55.55", action: "first shot" },
+        { timestamp: "00:04:55.55-00:05:07.38", action: "last shot" },
+        { timestamp: "Reveal beat", action: "reveal" },
+        { timestamp: "CTA beat", action: "cta" },
+      ];
+      readDesignDataMock.mockReturnValue(design);
+
+      await designBuildCommand(slug, "topic-a", { finalize: true });
+
+      const [, args] = execFileSyncMock.mock.calls[0];
+      expect(args).toContain("00:04:50.36");
+      expect(args).toContain("00:05:07.38");
+      expect(args).not.toContain("Hook beat");
+      expect(args).not.toContain("CTA beat");
+    });
+
     it("swaps the composition's clip reference from the proxy path to the final path", async () => {
       readProjectDataMock.mockReturnValue(
         makeProject({ videoPath: "/full/source.mp4" }),

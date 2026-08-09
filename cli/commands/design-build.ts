@@ -70,7 +70,21 @@ function timestampBoundary(
   boundary: "start" | "end",
 ): string {
   const parts = timestamp.split(/\s*(?:–|—|\s-\s)\s*/u);
-  return boundary === "start" ? parts[0] : parts[parts.length - 1];
+  // Older data used spaced hyphens; current edit-copy output uses an
+  // unspaced hyphen, so retain both forms when extracting ffmpeg boundaries.
+  const rangeParts = parts.length > 1 ? parts : timestamp.split("-");
+  return boundary === "start" ? rangeParts[0] : rangeParts[rangeParts.length - 1];
+}
+
+// Edit-copy also contains non-video template beats such as "Hook beat" and
+// "CTA beat". They describe composition cards, not source-media ranges, so
+// they must never be passed to ffmpeg's -ss/-to options.
+const TIMESTAMP_RANGE = /^\d{1,2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?\s*(?:\u2013|\u2014|-)\s*\d{1,2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?$/u;
+
+function videoTimestampRows(
+  rows: { timestamp: string }[],
+): { timestamp: string }[] {
+  return rows.filter((row) => TIMESTAMP_RANGE.test(row.timestamp));
 }
 
 // Remotion's staticFile() takes a path relative to public/, not an absolute
@@ -434,12 +448,12 @@ export async function designBuildCommand(
       process.exit(1);
     }
 
-    const firstTimestamp = structure.editCopy.rows[0]?.timestamp;
-    const lastTimestamp =
-      structure.editCopy.rows[structure.editCopy.rows.length - 1]?.timestamp;
+    const timedRows = videoTimestampRows(structure.editCopy.rows);
+    const firstTimestamp = timedRows[0]?.timestamp;
+    const lastTimestamp = timedRows[timedRows.length - 1]?.timestamp;
     if (!firstTimestamp || !lastTimestamp) {
       console.error(
-        `\nTopic "${topicId}"'s edit copy has no rows -- can't determine the clip range.`,
+        `\nTopic "${topicId}"'s edit copy has no timestamped video rows -- can't determine the clip range.`,
       );
       process.exit(1);
     }
