@@ -10,6 +10,7 @@ import {
 import { readProjectData, type ProjectData } from "../lib/project";
 import { runAgentTaskJson } from "../lib/agent/runner";
 import { reviewLoop } from "../lib/review-loop";
+import { renderCommand } from "./render";
 import { designBuildCommand, type BuildProposal } from "./design-build";
 
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
@@ -43,6 +44,7 @@ vi.mock("../lib/project", () => ({
 }));
 vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));
+vi.mock("./render", () => ({ renderCommand: vi.fn() }));
 
 const execFileSyncMock = execFileSync as unknown as ReturnType<typeof vi.fn>;
 const existsSyncMock = fs.existsSync as unknown as ReturnType<typeof vi.fn>;
@@ -64,6 +66,9 @@ const runAgentTaskJsonMock = runAgentTaskJson as unknown as ReturnType<
   typeof vi.fn
 >;
 const reviewLoopMock = reviewLoop as unknown as ReturnType<typeof vi.fn>;
+const renderCommandMock = renderCommand as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 const slug = "test-project";
 const lockedEditCopy = {
@@ -754,6 +759,29 @@ describe("designBuildCommand", () => {
       expect(savedBuild.extractedClip).toBe(
         "public/Projects/test-project/Assets/Video/topic-a.mp4",
       );
+    });
+
+    it("auto-renders after finalizing by default", async () => {
+      readProjectDataMock.mockReturnValue(makeProject());
+      readDesignDataMock.mockReturnValue(makeProxyDesign());
+
+      await designBuildCommand(slug, "topic-a", { finalize: true });
+
+      expect(renderCommandMock).toHaveBeenCalledWith(slug, "topic-a");
+    });
+
+    it("skips the auto-render when --skip-render is passed", async () => {
+      readProjectDataMock.mockReturnValue(makeProject());
+      readDesignDataMock.mockReturnValue(makeProxyDesign());
+
+      await designBuildCommand(slug, "topic-a", {
+        finalize: true,
+        skipRender: true,
+      });
+
+      expect(renderCommandMock).not.toHaveBeenCalled();
+      const loggedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
+      expect(loggedOutput).toContain("Skipping render");
     });
   });
 });

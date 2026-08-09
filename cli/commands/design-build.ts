@@ -23,6 +23,7 @@ import {
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 import { readTemplateManifest } from "./design-edit-copy";
+import { renderCommand } from "./render";
 import type { TemplateManifest } from "../../src/templates/contract";
 
 // Purely mechanical -- no LLM call. Used by `design build --finalize` to
@@ -374,6 +375,7 @@ export async function designBuildCommand(
   topicId: string,
   options: {
     finalize?: boolean;
+    skipRender?: boolean;
     agent?: AgentName;
     feedback?: string;
   } = {},
@@ -488,9 +490,16 @@ export async function designBuildCommand(
       `  Proxy left in place (not deleted): ${structure.build.extractedClip}`,
     );
     console.log(`  Final: ${finalDestination}`);
-    console.log(
-      `\nRun \`npm run dev\` to preview, then render to public/Projects/${slug}/Rendered/${topicId}.mp4.\n`,
-    );
+
+    if (options.skipRender) {
+      console.log(
+        `\nSkipping render (--skip-render). Run \`cutshort render ${slug} --topic ${topicId}\` when ready.\n`,
+      );
+      return;
+    }
+
+    console.log(`\nRendering...`);
+    await renderCommand(slug, topicId);
     return;
   }
 

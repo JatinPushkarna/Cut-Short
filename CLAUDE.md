@@ -42,8 +42,12 @@ Building a topic's composition, extracting its clip, or rendering it is
 not a task to improvise with raw `ffmpeg`/`npx remotion render` calls or a
 hand-written `.tsx` file, even though you have the tools to do exactly
 that. It only happens through the pipeline: `cutshort design phases ->
-topics -> content-structure -> edit-copy -> build -> build --finalize`,
-then `cutshort render`.
+topics -> content-structure -> edit-copy -> build -> build --finalize`.
+`--finalize` auto-renders once it finishes (mechanical, since the cut it's
+finalizing was already approved at the proxy stage) -- pass `--skip-render`
+to finalize without rendering yet, e.g. when finalizing several topics
+before rendering them all. Only run `cutshort render` by itself to
+re-render an already-finalized topic.
 
 The `design phases/topics/content-structure/edit-copy/build` steps work
 two different ways, chosen automatically, not by a flag: a human at their

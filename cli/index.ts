@@ -68,6 +68,10 @@ program
     "build only: re-extract an already-approved 720p proxy at full native resolution (mechanical, no LLM call)",
   )
   .option(
+    "--skip-render",
+    "finalize only: don't auto-render after finalizing -- useful when batch-finalizing several topics before rendering them all",
+  )
+  .option(
     "--feedback <notes>",
     "Non-interactive only (no TTY): regenerate this stage's candidate with revision notes, same as choosing " +
       '"Give feedback and regenerate" in the interactive menu. On Windows, long or multi-line ' +
@@ -93,6 +97,7 @@ program
       options: {
         topic?: string;
         finalize?: boolean;
+        skipRender?: boolean;
         agent: string;
         feedback?: string;
         feedbackFile?: string;
@@ -156,6 +161,7 @@ program
           }
           return designBuildCommand(slug, options.topic, {
             finalize: options.finalize,
+            skipRender: options.skipRender,
             agent,
             feedback: options.feedback,
           });
