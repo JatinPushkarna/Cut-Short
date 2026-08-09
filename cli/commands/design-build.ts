@@ -9,7 +9,7 @@ import {
   type Topic,
 } from "../lib/design";
 import { runAgentTaskJson } from "../lib/agent/runner";
-import type { AgentName } from "../lib/agent/types";
+import type { AgentName, AgentRunOptions } from "../lib/agent/types";
 import {
   finalVideoDir,
   finalVideoPath,
@@ -378,6 +378,7 @@ export async function designBuildCommand(
     skipRender?: boolean;
     agent?: AgentName;
     feedback?: string;
+    agentOptions?: AgentRunOptions;
   } = {},
 ): Promise<void> {
   requireProjectDir(slug);
@@ -527,6 +528,7 @@ export async function designBuildCommand(
         ),
         projectDir(slug),
         agent,
+        { ...options.agentOptions, retries: 0 },
       ),
     render,
     {

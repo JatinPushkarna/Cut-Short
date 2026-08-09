@@ -7,7 +7,7 @@ import {
 } from "../lib/design";
 import { groundingInstructions } from "../lib/grounding-prompt";
 import { runAgentTaskJson } from "../lib/agent/runner";
-import type { AgentName } from "../lib/agent/types";
+import type { AgentName, AgentRunOptions } from "../lib/agent/types";
 import {
   pendingCandidatePath,
   projectDir,
@@ -138,6 +138,7 @@ export async function designTopicsCommand(
   slug: string,
   agent: AgentName = "claude",
   feedback?: string,
+  agentOptions?: AgentRunOptions,
 ): Promise<void> {
   requireProjectDir(slug);
   const design = readDesignData(slug);
@@ -155,6 +156,7 @@ export async function designTopicsCommand(
         buildPrompt(design.phases, feedback),
         projectDir(slug),
         agent,
+        agentOptions,
       ),
     render,
     {
