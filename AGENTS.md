@@ -81,12 +81,40 @@ not a task to improvise with raw `ffmpeg`/`npx remotion render` calls or a
 hand-written `.tsx` file, even though you have the tools to do exactly
 that. It only happens through the pipeline: `cutshort design phases ->
 topics -> content-structure -> edit-copy -> build -> build --finalize`,
-then `cutshort render` — run by a human at their own interactive terminal.
-The `design phases/topics/content-structure/edit-copy/build` steps prompt
-for approval and need a real TTY; if you're invoked non-interactively
-(e.g. `codex exec`/`claude -p`) you cannot drive them, and that's a signal
-to hand the task back to the user, not to route around them by working
-the filesystem directly.
+then `cutshort render`.
+
+The `design phases/topics/content-structure/edit-copy/build` steps work
+two different ways, chosen automatically, not by a flag: a human at their
+own interactive terminal gets the classic approve/regenerate menu, same
+as always. **An agent invoked non-interactively (`codex exec`/`claude
+-p`, no real TTY) has a second, equally real path — this is not a
+limitation to route around, it's the actual intended way to drive these
+stages without a human touching a terminal:**
+
+1. Run the stage command as normal. With no TTY, it generates one
+   proposal, saves it as an *unapproved* pending candidate, and prints it
+   in full instead of prompting.
+2. Show that full proposal to the user in normal conversation (see the
+   "show every field" rule below).
+3. If they want changes: rerun the exact same command with `--feedback
+   "<notes>"` to regenerate. On Windows, long or multi-line feedback text
+   gets mangled by shell quoting — use `--feedback-file <path>` (a UTF-8
+   text file) instead.
+4. Once they actually say yes, run `cutshort design approve <slug>
+   --stage <stage> [--topic <id>]` yourself — this records it for real,
+   the same save `design.json` gets from a human's "Approve" keystroke.
+5. If you already know the exact final content (it was fully decided in
+   an earlier conversation — nothing left to invent, just something to
+   record), skip generation entirely: `cutshort design amend <slug>
+   --stage <stage> --input <file.json> [--topic <id>]` writes it straight
+   to the same pending-candidate file step 1 would have produced, no
+   agent call, no wasted tokens reproducing text that's already known.
+
+None of this changes the absolutes: never hand-write `design.json`
+directly, and never fabricate or simulate an approval the user didn't
+actually give. The point of the flow above is that there's a real, correct
+way to get a genuine approval recorded without a human touching a
+terminal — use it, don't route around it.
 
 Why this matters more than it looks like it should: each locked stage
 records a frame-verified cut list plus which agent generated it and when
@@ -138,16 +166,6 @@ template decision *and its rationale*, hook, bridge, verbatim SRT
 dialogue, reveal, CTA, and complete YouTube/Instagram/TikTok packaging.
 Summarizing "to keep the answer concise" removes exactly what the human
 needs to approve or reject the thing accurately.
-
-**Known tooling limit, not something to route around:** even when
-everything above is followed correctly, `design content-structure`/
-`edit-copy`/`build`'s actual approval step still needs a real interactive
-terminal (see above), and the pipeline currently returns 2-3 variants
-with no scriptable way to lock in exactly one. If you're running
-non-interactively and reach this point, that's the natural stopping
-place — report the proposal back to the user and let them run the actual
-command themselves, rather than trying to simulate approval or hand-write
-around it.
 
 **Case-specific feedback vs. reusable rules:** correcting course on one
 specific decision (which topic, which variant) is not the same as a
