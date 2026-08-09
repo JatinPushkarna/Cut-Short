@@ -235,6 +235,54 @@ describe("renderDesignMarkdown", () => {
     expect(renderDesignMarkdown(design, "test-project")).toContain("A \\| B");
   });
 
+  it("converts multiline platform copy to HTML breaks so table rows stay intact", () => {
+    const design: DesignData = {
+      phases: [
+        {
+          id: "p1",
+          name: "Phase",
+          goal: "g",
+          topics: [
+            {
+              id: "t1",
+              title: "Topic",
+              contentStructures: [
+                {
+                  variant: "A",
+                  hook: "h",
+                  bridge: "b",
+                  content: "c",
+                  cta: "follow",
+                  platforms: {
+                    youtube: {
+                      title: "Generic title",
+                      caption: "First line\n\nSecond line",
+                      hashtags: ["#example"],
+                    },
+                    instagram: {
+                      caption: "Opening\r\nClosing",
+                      hashtags: ["#example"],
+                    },
+                    tiktok: { caption: "Single line", hashtags: ["#example"] },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const md = renderDesignMarkdown(design, "test-project");
+
+    expect(md).toContain(
+      "| YouTube | Generic title | First line<br><br>Second line | #example |",
+    );
+    expect(md).toContain("| Instagram | — | Opening<br>Closing | #example |");
+    expect(md).not.toContain("First line\n\nSecond line");
+    expect(md).not.toContain("Opening\r\nClosing");
+  });
+
   it("indents multi-line content so it nests under the Content bullet", () => {
     const design: DesignData = {
       phases: [
