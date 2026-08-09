@@ -8,7 +8,7 @@ import {
   type DesignData,
 } from "../lib/design";
 import { readProjectData } from "../lib/project";
-import { npxCommandForPlatform, renderCommand } from "./render";
+import { remotionCliPath, renderCommand } from "./render";
 
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
 vi.mock("node:fs", () => ({
@@ -100,9 +100,11 @@ describe("renderCommand", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses the Windows npx shim only on Windows", () => {
-    expect(npxCommandForPlatform("win32")).toBe("npx.cmd");
-    expect(npxCommandForPlatform("linux")).toBe("npx");
+  it("resolves Remotion's actual JS entry point, not npx/npm", () => {
+    const resolved = remotionCliPath();
+    expect(resolved.replace(/\\/g, "/")).toContain(
+      "node_modules/@remotion/cli/remotion-cli.js",
+    );
   });
 
   it("exits if the topic doesn't exist", async () => {
@@ -164,9 +166,9 @@ describe("renderCommand", () => {
       { recursive: true },
     );
     expect(execFileSyncMock).toHaveBeenCalledWith(
-      npxCommandForPlatform(),
+      process.execPath,
       [
-        "remotion",
+        remotionCliPath(),
         "render",
         "src/index.ts",
         "TopicA",
