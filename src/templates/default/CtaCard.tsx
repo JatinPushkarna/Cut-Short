@@ -6,7 +6,11 @@ import { COLORS, fontFamily, TYPE, wrapStyle } from "./theme";
 // brand name and days-left counter change project to project / day to day.
 export const CtaCard: React.FC<CtaCardProps> = ({ daysLeft, brandName }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width } = useVideoConfig();
+  // The shared type scale targets a 2160px-wide vertical canvas. Scale only
+  // the CTA title down on narrower compositions so a brand name can wrap
+  // between words without ever splitting a word such as "DETECTOR".
+  const titleFontSize = Math.min(TYPE.ctaTitle.fontSize, width * 0.1);
 
   const opacity = interpolate(frame, [0, fps * 0.4], [0, 1], {
     extrapolateLeft: "clamp",
@@ -28,7 +32,11 @@ export const CtaCard: React.FC<CtaCardProps> = ({ daysLeft, brandName }) => {
           color: COLORS.white,
           fontFamily,
           ...TYPE.ctaTitle,
+          fontSize: titleFontSize,
           ...wrapStyle(92),
+          wordWrap: "normal",
+          overflowWrap: "normal",
+          wordBreak: "normal",
           textShadow: "0 4px 20px rgba(0,0,0,0.6)",
         }}
       >
