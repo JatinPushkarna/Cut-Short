@@ -1,6 +1,6 @@
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { HookSceneProps } from "../contract";
-import { fontFamily, TYPE, wrapStyle } from "./theme";
+import { fitFontSize, fontFamily, noBreakWrap, TYPE, wrapStyle } from "./theme";
 
 // Reusable HOOK treatment: a dimmed/blurred *still* (never live footage --
 // see CLAUDE.md) behind the hook line, with a slow Ken Burns push-in and a
@@ -11,7 +11,7 @@ export const HookScene: React.FC<HookSceneProps> = ({ bgSrc, text }) => {
   // The theme scale is authored for a 2160px-wide canvas. Clamp the hook on
   // narrower vertical exports so a normal sentence stays readable without
   // breaking individual words across lines.
-  const hookFontSize = Math.min(TYPE.hook.fontSize, width * 0.09);
+  const hookFontSize = fitFontSize("hook", width);
 
   const bgScale = interpolate(frame, [0, durationInFrames], [1.04, 1.14], {
     extrapolateRight: "clamp",
@@ -37,9 +37,7 @@ export const HookScene: React.FC<HookSceneProps> = ({ bgSrc, text }) => {
     ...TYPE.hook,
     fontSize: hookFontSize,
     ...wrapStyle(88),
-    wordWrap: "normal",
-    overflowWrap: "normal",
-    wordBreak: "normal",
+    ...noBreakWrap,
   };
 
   return (

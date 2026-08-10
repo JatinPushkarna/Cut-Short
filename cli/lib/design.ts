@@ -85,7 +85,10 @@ export type BuildOutput = {
 export type ContentStructure = {
   variant: string;
   hook: string;
-  bridge: string;
+  // Only present for templates with a Bridge beat (e.g. '5-beats') --
+  // omitted for templates that cut straight from hook to video (e.g. the
+  // default '4-beats').
+  bridge?: string;
   // The real dialogue itself -- verbatim, speaker-labeled lines from the
   // SRT transcript (not a paraphrase), or "NO MATCHING DIALOGUE FOUND in
   // transcript" if nothing real fits. This is what `design edit-copy` later
@@ -215,7 +218,9 @@ export function renderDesignMarkdown(design: DesignData, slug: string): string {
 
         lines.push("**Copy**");
         lines.push(`- Hook: ${structure.hook}`);
-        lines.push(`- Bridge: ${structure.bridge}`);
+        if (structure.bridge) {
+          lines.push(`- Bridge: ${structure.bridge}`);
+        }
         lines.push(`- Content: ${indentContinuationLines(formatContent(structure.content))}`);
         if (structure.reveal) {
           lines.push(`- Reveal: ${structure.reveal}`);

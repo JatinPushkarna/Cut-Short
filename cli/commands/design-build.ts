@@ -181,12 +181,31 @@ export function buildBuildPrompt(
     ),
   );
   lines.push("");
+  const componentFiles = [
+    templateManifest.components.hookScene && "HookScene.tsx",
+    templateManifest.components.bridgeCard && "BridgeCard.tsx",
+    templateManifest.components.videoHookOverlay && "VideoHookOverlay.tsx",
+    "CtaCard.tsx",
+    templateManifest.components.redFlagStamp && "RedFlagStamp.tsx",
+    templateManifest.components.glitchFlash && "GlitchFlash.tsx",
+  ].filter((f): f is string => Boolean(f));
   lines.push(
     "Read src/templates/contract.ts (repo root -- exact prop TYPES) and every real component " +
       `file in ${templateDirPath} (this project's locked template) -- manifest.ts, ` +
-      "HookScene.tsx, BridgeCard.tsx, CtaCard.tsx, RedFlagStamp.tsx, GlitchFlash.tsx, " +
-      "theme.ts. The actual .tsx files are ground truth for exact prop NAMES, contract.ts's " +
-      "types alone aren't enough.",
+      `${componentFiles.join(", ")}, theme.ts. Only read files this template's manifest ` +
+      "actually declares -- don't assume every template has a Bridge beat or every other " +
+      "role the original 5-beat template had. The actual .tsx files are ground truth for " +
+      "exact prop NAMES, contract.ts's types alone aren't enough.",
+  );
+  lines.push(
+    "Any text this composition writes inline rather than through a shared component " +
+      "(the REVEAL/twist text and burned-in captions are typically hand-wired per composition, " +
+      "not a shared component) MUST use theme.ts's fitFontSize(role, width) for its fontSize " +
+      "and spread noBreakWrap alongside wrapStyle() -- e.g. `fontSize: fitFontSize(\"reveal\", " +
+      'width), ...wrapStyle(90), ...noBreakWrap`. Without this, long or wide text on a ' +
+      "narrower-than-2160px canvas can force a mid-character wrap (every letter on its own " +
+      "line) instead of a normal word wrap -- this exact bug has already shipped once from " +
+      "hand-rolled text styling, don't reintroduce it.",
   );
   lines.push("");
   lines.push(

@@ -62,10 +62,16 @@ function validate(stage: string, proposal: unknown): string | null {
         }
         for (const s of e.contentStructures as unknown[]) {
           const structure = s as Record<string, unknown>;
-          for (const field of ["variant", "hook", "bridge", "content", "cta"]) {
+          for (const field of ["variant", "hook", "content", "cta"]) {
             if (typeof structure[field] !== "string") {
               return `every content structure needs a string "${field}" -- got ${JSON.stringify(s)}`;
             }
+          }
+          if (
+            structure.bridge !== undefined &&
+            typeof structure.bridge !== "string"
+          ) {
+            return `content structure "bridge" must be a string when present -- got ${JSON.stringify(s)}`;
           }
         }
       }

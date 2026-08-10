@@ -47,7 +47,7 @@ export function buildEditCopyPrompt(
   topic: Topic,
   structure: {
     hook: string;
-    bridge: string;
+    bridge?: string;
     content: string;
     reveal?: string;
     cta: string;

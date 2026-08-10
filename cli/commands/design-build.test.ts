@@ -92,7 +92,7 @@ function makeProject(overrides: Partial<ProjectData> = {}): ProjectData {
     videoPath: "/video.mp4",
     scriptPath: null,
     createdAt: new Date().toISOString(),
-    template: "default",
+    template: "5-beats",
     ...overrides,
   };
 }
@@ -265,7 +265,7 @@ describe("designBuildCommand", () => {
   });
 
   it("builds a prompt with the locked copy, editCopy span, and a 720p proxy constraint", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -299,7 +299,7 @@ describe("designBuildCommand", () => {
   });
 
   it("doesn't hardcode a reference to any specific private project's composition", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -321,8 +321,8 @@ describe("designBuildCommand", () => {
     expect(prompt).not.toContain("Day8");
   });
 
-  it("tells the model to generate a hook still for a template that has one ('default')", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+  it("tells the model to generate a hook still for a template that has one ('5-beats')", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -370,7 +370,7 @@ describe("designBuildCommand", () => {
   });
 
   it("saves the returned build output onto the topic's content structure, tagged as a proxy", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     const design = makeDesign([
       {
         variant: "a",
@@ -402,7 +402,7 @@ describe("designBuildCommand", () => {
   });
 
   it("warns (but doesn't block) when the command's own file check finds a path the agent claimed but didn't write", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -429,7 +429,7 @@ describe("designBuildCommand", () => {
   });
 
   it("confirms all files exist when the command's own check agrees with the agent", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -454,7 +454,7 @@ describe("designBuildCommand", () => {
   });
 
   it("warns when the composition isn't actually registered in Root.local.tsx", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -484,7 +484,7 @@ describe("designBuildCommand", () => {
   });
 
   it("confirms registration when Root.local.tsx already references the composition id", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -512,7 +512,7 @@ describe("designBuildCommand", () => {
   });
 
   it("bounds self-verification to metadata-only, no frame-viewing", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -544,7 +544,7 @@ describe("designBuildCommand", () => {
   });
 
   it("refuses to re-run the plain (non-finalize) proxy flow over an already-finalized build", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {

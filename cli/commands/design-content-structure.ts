@@ -88,9 +88,13 @@ export function buildPrompt(
       "mismatch -- a new template is a real cost (breaks visual consistency " +
       "across the campaign, needs a follow-up build pass for the actual " +
       "component code), not a free choice to make per batch of content. If no " +
-      "template is set yet for this project, prefer reusing 'default' unless " +
-      "this content clearly needs something the 5-beat structure can't do -- " +
-      "bias toward the proven format, not a blank-slate decision every time.",
+      "template is set yet for this project, prefer reusing '4-beats' unless " +
+      "this content clearly needs something that structure can't do -- bias " +
+      "toward the proven format, not a blank-slate decision every time. " +
+      "'5-beats' (adds a misdirect Bridge beat before the video) is a legacy " +
+      "option now: real Instagram viewing data showed drop-off during that " +
+      "beat, so only reach for it when a deliberate misdirect genuinely fits " +
+      "this specific piece of content, not as a default choice.",
   );
   lines.push(
     "4. Only if nothing existing genuinely fits, propose a new template: pick " +
@@ -106,8 +110,8 @@ export function buildPrompt(
   );
   lines.push(
     "- If its HOOK is a separate still/black beat before any footage plays " +
-      "(e.g. 'default'), the video's in-point is unconstrained by overlay " +
-      "legibility -- pick wherever the real scene starts.",
+      "(e.g. '4-beats', '5-beats'), the video's in-point is unconstrained by " +
+      "overlay legibility -- pick wherever the real scene starts.",
   );
   lines.push(
     "- If its HOOK overlays text on real footage from frame 0 (e.g. " +
@@ -117,9 +121,12 @@ export function buildPrompt(
   lines.push("");
   lines.push(
     "Now propose 2-3 DIFFERENT content structure variants -- each a full " +
-      "hook/bridge/content/reveal/cta breakdown. These are explicitly meant " +
-      "as experiments to test against the audience (different hook framings, " +
-      "different misdirects), not near-duplicates of each other.",
+      "hook/content/reveal/cta breakdown, plus a bridge ONLY if the template " +
+      "you chose actually has a Bridge beat (check its manifest's " +
+      "components.bridgeCard -- '4-beats' and '3-beats' don't, '5-beats' " +
+      "does). These are explicitly meant as experiments to test against the " +
+      "audience (different hook framings, different misdirects where a " +
+      "bridge applies), not near-duplicates of each other.",
   );
   lines.push("");
   lines.push(
@@ -184,7 +191,8 @@ export function buildPrompt(
   },
   "contentStructuresByTopic": [
     { "topicId": string, "contentStructures": [{
-        "variant": string, "hook": string, "bridge": string, "content": string, "reveal": string, "cta": string,
+        "variant": string, "hook": string, "bridge": string, // omit entirely if the chosen template has no Bridge beat
+        "content": string, "reveal": string, "cta": string,
         "platforms": {
           "youtube": { "title": string, "caption": string, "hashtags": [string] },
           "instagram": { "caption": string, "hashtags": [string] },
@@ -237,7 +245,7 @@ function render(proposal: ContentStructureProposal): string {
           .map(
             (s) =>
               `  [${s.variant}] hook: ${s.hook}\n` +
-              `        bridge: ${s.bridge}\n` +
+              (s.bridge ? `        bridge: ${s.bridge}\n` : "") +
               `        content: ${formatContent(s.content)}\n` +
               (s.reveal ? `        reveal: ${s.reveal}\n` : "") +
               `        cta: ${s.cta}` +

@@ -1,6 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { CtaCardProps } from "../contract";
-import { COLORS, fontFamily, TYPE, wrapStyle } from "./theme";
+import { COLORS, fitFontSize, fontFamily, noBreakWrap, TYPE, wrapStyle } from "./theme";
 
 // Consistent close for every daily post -- same treatment, only the
 // brand name and days-left counter change project to project / day to day.
@@ -14,7 +14,9 @@ export const CtaCard: React.FC<CtaCardProps> = ({
   // The shared type scale targets a 2160px-wide vertical canvas. Scale only
   // the CTA title down on narrower compositions so a brand name can wrap
   // between words without ever splitting a word such as "DETECTOR".
-  const titleFontSize = Math.min(TYPE.ctaTitle.fontSize, width * 0.1);
+  const titleFontSize = fitFontSize("ctaTitle", width);
+  const subtitleFontSize = fitFontSize("ctaSubtitle", width);
+  const counterFontSize = fitFontSize("ctaCounter", width);
 
   const opacity = interpolate(frame, [0, fps * 0.4], [0, 1], {
     extrapolateLeft: "clamp",
@@ -38,9 +40,7 @@ export const CtaCard: React.FC<CtaCardProps> = ({
           ...TYPE.ctaTitle,
           fontSize: titleFontSize,
           ...wrapStyle(92),
-          wordWrap: "normal",
-          overflowWrap: "normal",
-          wordBreak: "normal",
+          ...noBreakWrap,
           textShadow: "0 4px 20px rgba(0,0,0,0.6)",
         }}
       >
@@ -51,7 +51,9 @@ export const CtaCard: React.FC<CtaCardProps> = ({
           color: COLORS.dim,
           fontFamily,
           ...TYPE.ctaSubtitle,
+          fontSize: subtitleFontSize,
           ...wrapStyle(88),
+          ...noBreakWrap,
           marginTop: 32,
         }}
       >
@@ -63,7 +65,9 @@ export const CtaCard: React.FC<CtaCardProps> = ({
             color: COLORS.accent,
             fontFamily,
             ...TYPE.ctaCounter,
+            fontSize: counterFontSize,
             ...wrapStyle(88),
+            ...noBreakWrap,
             marginTop: 48,
           }}
         >

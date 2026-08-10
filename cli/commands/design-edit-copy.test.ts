@@ -55,7 +55,7 @@ function makeProject(overrides: Partial<ProjectData> = {}): ProjectData {
     videoPath: "/video.mp4",
     scriptPath: null,
     createdAt: new Date().toISOString(),
-    template: "default",
+    template: "5-beats",
     ...overrides,
   };
 }
@@ -167,7 +167,7 @@ describe("designEditCopyCommand", () => {
   });
 
   it("reads the real 'default' template manifest and reflects its beat structure in the prompt", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(makeDesign());
     runAgentTaskJsonMock.mockReturnValue({
       editCopy: { sourceVideo: "/video.mp4", rows: [] },
@@ -176,7 +176,7 @@ describe("designEditCopyCommand", () => {
     await designEditCopyCommand(slug, "topic-a");
 
     const prompt = runAgentTaskJsonMock.mock.calls[0][0] as string;
-    // "default"'s real manifest has no videoHookOverlay component -- HOOK is
+    // "5-beats"'s real manifest has no videoHookOverlay component -- HOOK is
     // a separate still/black beat, so the no-overlay branch should show up.
     expect(prompt).toContain("5 Beats");
     expect(prompt).toContain(
@@ -188,7 +188,7 @@ describe("designEditCopyCommand", () => {
   });
 
   it("does not redraft copy or reconsider the template -- both passed as fixed inputs", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(
       makeDesign([
         {
@@ -213,7 +213,7 @@ describe("designEditCopyCommand", () => {
   });
 
   it("saves the returned editCopy onto the topic's single locked content structure", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     const design = makeDesign();
     readDesignDataMock.mockReturnValue(design);
     const editCopy = {
@@ -236,7 +236,7 @@ describe("designEditCopyCommand", () => {
   });
 
   it("points at this project's own src/<slug>/ for pattern reference, not a hardcoded private project", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(makeDesign());
     runAgentTaskJsonMock.mockReturnValue({
       editCopy: { sourceVideo: "/video.mp4", rows: [] },
@@ -251,7 +251,7 @@ describe("designEditCopyCommand", () => {
   });
 
   it("requires exact numeric objectPosition values and real shot-count verification", async () => {
-    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
     readDesignDataMock.mockReturnValue(makeDesign());
     runAgentTaskJsonMock.mockReturnValue({
       editCopy: { sourceVideo: "/video.mp4", rows: [] },

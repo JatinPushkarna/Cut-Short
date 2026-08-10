@@ -36,3 +36,41 @@ export const wrapStyle: ThemeContract["wrapStyle"] = (maxWidthPct) => ({
   overflowWrap: "break-word",
   whiteSpace: "normal",
 });
+
+// Per-role cap on fontSize as a fraction of canvas width -- the TYPE scale
+// above is tuned for a 2160px-wide canvas, so on a narrower export each
+// role's font must shrink or long/wide words force a mid-character wrap
+// (every letter on its own line) instead of a normal word wrap. hook and
+// ctaTitle are the original, shipped-and-tested values; the rest were
+// derived from the same fontSize/canvasWidth relationship those two share
+// (fontSize / ~1473) and confirmed against a real `remotion still` render
+// at 1080px width with deliberately long test strings per role (2026-08-10)
+// -- word-boundary wrapping held for every role; reveal's box ran tight
+// against a full 5-line sentence, which is fine given reveal copy is
+// written short in practice, but is the one role worth re-checking if a
+// real day ever gives it an unusually long reveal line.
+const WIDTH_CLAMP_RATIO: Record<keyof ThemeContract["TYPE"], number> = {
+  hook: 0.09,
+  bridge: 0.0625,
+  caption: 0.06,
+  reveal: 0.095,
+  ctaTitle: 0.1,
+  ctaSubtitle: 0.049,
+  ctaCounter: 0.038,
+};
+
+export function fitFontSize(
+  role: keyof ThemeContract["TYPE"],
+  canvasWidth: number,
+): number {
+  return Math.min(TYPE[role].fontSize, canvasWidth * WIDTH_CLAMP_RATIO[role]);
+}
+
+// Word-boundary-only wrap: never break a word mid-character even when it's
+// wider than the container at the clamped font size -- combine with
+// wrapStyle() and fitFontSize() on any text node using the TYPE scale.
+export const noBreakWrap: React.CSSProperties = {
+  wordWrap: "normal",
+  overflowWrap: "normal",
+  wordBreak: "normal",
+};

@@ -1,6 +1,6 @@
-import { AbsoluteFill, Audio, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, OffthreadVideo, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { VideoHookOverlayProps } from "../contract";
-import { fontFamily, TYPE, wrapStyle } from "./theme";
+import { fitFontSize, fontFamily, noBreakWrap, TYPE, wrapStyle } from "./theme";
 
 // Per brief.md: "Video hook overlay: start on real footage, hook text
 // overlaid on top" -- the Hook and Video beats merge into one, no separate
@@ -22,6 +22,7 @@ export const VideoHookOverlay: React.FC<VideoHookOverlayProps> = ({
   overlayPositionPct = 12,
 }) => {
   const frame = useCurrentFrame();
+  const { width } = useVideoConfig();
 
   const opacity = interpolate(frame, [0, 12], [0, 1], {
     extrapolateLeft: "clamp",
@@ -47,7 +48,18 @@ export const VideoHookOverlay: React.FC<VideoHookOverlayProps> = ({
             padding: "28px 56px",
           }}
         >
-          <div style={{ fontFamily, ...TYPE.caption, ...wrapStyle(80), color: "white" }}>{hookText}</div>
+          <div
+            style={{
+              fontFamily,
+              ...TYPE.caption,
+              fontSize: fitFontSize("caption", width),
+              ...wrapStyle(80),
+              ...noBreakWrap,
+              color: "white",
+            }}
+          >
+            {hookText}
+          </div>
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

@@ -1,3 +1,3 @@
-// "3 Beats" reuses default's CTA treatment exactly -- per brief.md's reuse
+// "3 Beats" reuses 5-beats' CTA treatment exactly -- per brief.md's reuse
 // decision ("Reveal and CTA"). Re-export, not a copy.
-export * from "../default/CtaCard";
+export * from "../5-beats/CtaCard";
