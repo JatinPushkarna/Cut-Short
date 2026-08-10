@@ -14,8 +14,11 @@ export type BridgeCardProps = {
 };
 
 export type CtaCardProps = {
-  daysLeft: number;
   brandName: string;
+  /** Countdown copy for campaigns with a fixed release date. */
+  daysLeft?: number;
+  /** Replaces the countdown with a release-status label such as "COMING SOON". */
+  statusText?: string;
 };
 
 export type RedFlagStampProps = {

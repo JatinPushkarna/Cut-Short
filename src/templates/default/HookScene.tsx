@@ -7,7 +7,11 @@ import { fontFamily, TYPE, wrapStyle } from "./theme";
 // glitch-style (RGB channel-split) text entrance instead of a plain fade.
 export const HookScene: React.FC<HookSceneProps> = ({ bgSrc, text }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, width } = useVideoConfig();
+  // The theme scale is authored for a 2160px-wide canvas. Clamp the hook on
+  // narrower vertical exports so a normal sentence stays readable without
+  // breaking individual words across lines.
+  const hookFontSize = Math.min(TYPE.hook.fontSize, width * 0.09);
 
   const bgScale = interpolate(frame, [0, durationInFrames], [1.04, 1.14], {
     extrapolateRight: "clamp",
@@ -31,7 +35,11 @@ export const HookScene: React.FC<HookSceneProps> = ({ bgSrc, text }) => {
     position: "absolute",
     fontFamily,
     ...TYPE.hook,
+    fontSize: hookFontSize,
     ...wrapStyle(88),
+    wordWrap: "normal",
+    overflowWrap: "normal",
+    wordBreak: "normal",
   };
 
   return (
@@ -57,7 +65,7 @@ export const HookScene: React.FC<HookSceneProps> = ({ bgSrc, text }) => {
       <AbsoluteFill
         style={{ justifyContent: "center", alignItems: "center", padding: 120, transform: `scale(${scale})` }}
       >
-        <div style={{ position: "relative", ...wrapStyle(88) }}>
+        <div style={{ position: "relative", width: "88%", ...wrapStyle(88) }}>
           <div
             style={{ ...textBaseStyle, left: -splitPx, top: 0, color: "#37e0e0", opacity: opacity * 0.7, mixBlendMode: "screen" }}
           >
