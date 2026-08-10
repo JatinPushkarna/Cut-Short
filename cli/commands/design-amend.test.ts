@@ -117,6 +117,36 @@ describe("designAmendCommand", () => {
     );
   });
 
+  it("rejects an objective file missing required fields", () => {
+    readFileSyncMock.mockReturnValue(
+      JSON.stringify({ businessOutcome: "grow follows" }),
+    );
+    expect(() =>
+      designAmendCommand(slug, "objective", inputPath, undefined, "claude"),
+    ).toThrow("process.exit(1)");
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('doesn\'t match what "objective" expects'),
+    );
+  });
+
+  it("accepts a valid objective file and writes the pending candidate", () => {
+    const proposal = {
+      businessOutcome: "grow follows",
+      narrativeDirection: "escalate",
+      campaignShape: "7 days",
+      openQuestions: ["confirm exact post count"],
+    };
+    readFileSyncMock.mockReturnValue(JSON.stringify(proposal));
+
+    designAmendCommand(slug, "objective", inputPath, undefined, "claude");
+
+    const [writtenPath, writtenContent] = writeFileSyncMock.mock.calls[0];
+    expect(writtenPath).toBe(
+      "/projects/test-project/Campaign/.pending/objective.json",
+    );
+    expect(JSON.parse(writtenContent as string).proposal).toEqual(proposal);
+  });
+
   it("rejects a phases file missing required fields", () => {
     readFileSyncMock.mockReturnValue(JSON.stringify([{ id: "p1" }]));
     expect(() =>

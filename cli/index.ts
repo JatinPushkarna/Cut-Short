@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { Command } from "commander";
 import { initCommand } from "./commands/init";
 import { transcribeCommand } from "./commands/transcribe";
+import { designObjectiveCommand } from "./commands/design-objective";
 import { designPhasesCommand } from "./commands/design-phases";
 import { designTopicsCommand } from "./commands/design-topics";
 import { designContentStructureCommand } from "./commands/design-content-structure";
@@ -47,6 +48,7 @@ program
   .action(transcribeCommand);
 
 const DESIGN_STEPS = [
+  "objective",
   "phases",
   "topics",
   "content-structure",
@@ -100,7 +102,7 @@ program
   )
   .option(
     "--stage <stage>",
-    "approve/amend only: which stage's pending candidate (phases|topics|content-structure|edit-copy|build)",
+    "approve/amend only: which stage's pending candidate (objective|phases|topics|content-structure|edit-copy|build)",
   )
   .option(
     "--input <path>",
@@ -160,6 +162,8 @@ program
       }
 
       switch (step) {
+        case "objective":
+          return designObjectiveCommand(slug, agent, options.feedback, agentOptions);
         case "phases":
           return designPhasesCommand(slug, agent, options.feedback, agentOptions);
         case "topics":

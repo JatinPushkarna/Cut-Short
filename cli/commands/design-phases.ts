@@ -95,6 +95,14 @@ export async function designPhasesCommand(
 ): Promise<void> {
   requireProjectDir(slug);
   const project = readProjectData(slug);
+
+  if (!project.campaignShape) {
+    console.error(
+      `\nNo objective brief found for ${slug} -- run \`cutshort design objective ${slug}\` first.`,
+    );
+    process.exit(1);
+  }
+
   const existing = readDesignData(slug);
 
   const phases = await reviewLoop(

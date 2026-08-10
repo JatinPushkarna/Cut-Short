@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import prompts from "prompts";
+import { objectiveMdPath, renderObjectiveMd } from "../lib/objective";
 import {
   campaignDir,
   imagesDir,
@@ -135,9 +136,6 @@ export async function initCommand(): Promise<void> {
   fs.mkdirSync(srtDir(slug), { recursive: true });
   fs.mkdirSync(campaignDir(slug), { recursive: true });
 
-  const objectiveMd = buildObjectiveMd(answers, { videoAbsPath, scriptAbsPath });
-  fs.writeFileSync(path.join(campaignDir(slug), "objective.md"), objectiveMd);
-
   const projectData: ProjectData = {
     slug,
     projectName: answers.projectName,
@@ -153,6 +151,7 @@ export async function initCommand(): Promise<void> {
     template: null,
   };
   writeProjectData(slug, projectData);
+  fs.writeFileSync(objectiveMdPath(slug), renderObjectiveMd(projectData));
 
   console.log(`\nProject created: public/Projects/${slug}/`);
   console.log(`  - Campaign/objective.md written`);
@@ -162,42 +161,8 @@ export async function initCommand(): Promise<void> {
   if (scriptAbsPath) {
     console.log(`  - script referenced (not copied): ${scriptAbsPath}`);
   }
-  console.log(`\nNext: run \`npm run cutshort -- transcribe ${slug}\`\n`);
-}
-
-function buildObjectiveMd(
-  answers: Answers,
-  paths: { videoAbsPath: string; scriptAbsPath: string | null }
-): string {
-  const lines: string[] = [];
-  lines.push(`# ${answers.projectName || "Untitled Project"}`);
-  lines.push("");
-  lines.push(`**Created:** ${new Date().toISOString().slice(0, 10)}`);
-  lines.push("");
-  lines.push("## Objective");
-  lines.push(answers.objective || "_not provided_");
-  lines.push("");
-  lines.push("## Target audience");
-  lines.push(answers.targetAudience || "_not provided_");
-  lines.push("");
-  lines.push("## What the source file is about");
-  lines.push(answers.fileDescription || "_not provided_");
-  lines.push("");
-  lines.push("## Platforms");
-  for (const p of answers.platforms) {
-    lines.push(`- ${p}`);
-  }
-  lines.push("");
-  lines.push("## Campaign length");
-  lines.push(answers.isCampaign ? `${answers.campaignDays} days` : "Single post");
-  lines.push("");
-  lines.push("## Source files");
-  lines.push(
-    "_Referenced by path, not copied into this folder -- source video/script can be large, and a copy adds no processing benefit. Every later command re-validates these paths still exist before running, since a moved/renamed/deleted source silently breaks a path reference._"
+  console.log(
+    `\nNext: run \`npm run cutshort -- transcribe ${slug}\`, then \`npm run cutshort -- ` +
+      `design objective ${slug}\` -- required before \`design phases\` will run.\n`,
   );
-  lines.push("");
-  lines.push(`- Script: ${paths.scriptAbsPath ?? "not provided"}`);
-  lines.push(`- Video: ${paths.videoAbsPath}`);
-  lines.push("");
-  return lines.join("\n");
 }

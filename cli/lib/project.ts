@@ -122,6 +122,26 @@ export type ProjectData = {
   // Which src/templates/<name>/ this project's compositions are built
   // against -- set by `cutshort template`, null until that's run.
   template: string | null;
+  // Prior campaign project slugs that used the same source footage --
+  // `cutshort design objective` determines this itself (comparing videoPath/
+  // fileDescription against every other project's project.json, then
+  // reading the matches' real objective.md/design.json), not something the
+  // human declares at init. Absent/empty means it found no prior campaign
+  // for this source (the cold-start case). Set once that stage's proposal
+  // is approved.
+  relatedProjects?: string[];
+  // The following four are set by `cutshort design objective <slug>` --
+  // that stage is REQUIRED (design-phases.ts refuses to run without it),
+  // so these are absent only before it's been run and approved once.
+  // distributionAdvantage/creativeExclusions individually stay optional
+  // even after that -- a brand-new campaign may genuinely have neither.
+  narrativeDirection?: string;
+  distributionAdvantage?: string;
+  creativeExclusions?: string;
+  campaignShape?: string;
+  // Things `design objective` couldn't confidently fill in on its own --
+  // surfaced in objective.md so they don't get silently guessed at.
+  openQuestions?: string[];
 };
 
 export function projectJsonPath(slug: string): string {
@@ -157,4 +177,44 @@ export function readProjectData(slug: string): ProjectData {
   }
 
   return data;
+}
+
+// Lightweight inventory of every OTHER project on disk -- what `design
+// objective` uses to figure out for itself whether this campaign builds on
+// a prior one using the same source footage, instead of asking the human
+// to remember and type project slugs. Deliberately cheap (just the fields
+// needed to judge relatedness): the agent decides which of these actually
+// match and reads their real objective.md/design.json itself once it does.
+export function listOtherProjects(
+  excludeSlug: string,
+): Pick<ProjectData, "slug" | "videoPath" | "fileDescription" | "objective">[] {
+  if (!fs.existsSync(PROJECTS_ROOT)) {
+    return [];
+  }
+  const results: Pick<
+    ProjectData,
+    "slug" | "videoPath" | "fileDescription" | "objective"
+  >[] = [];
+  for (const entry of fs.readdirSync(PROJECTS_ROOT)) {
+    if (entry === excludeSlug) {
+      continue;
+    }
+    const jsonPath = projectJsonPath(entry);
+    if (!fs.existsSync(jsonPath)) {
+      continue;
+    }
+    try {
+      const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as ProjectData;
+      results.push({
+        slug: data.slug,
+        videoPath: data.videoPath,
+        fileDescription: data.fileDescription,
+        objective: data.objective,
+      });
+    } catch {
+      // Malformed project.json -- skip it rather than failing the whole scan.
+      continue;
+    }
+  }
+  return results;
 }

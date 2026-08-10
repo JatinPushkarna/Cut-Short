@@ -23,6 +23,24 @@ function validate(stage: string, proposal: unknown): string | null {
   const obj = proposal as Record<string, unknown> | unknown[] | null;
 
   switch (stage) {
+    case "objective": {
+      const o = obj as Record<string, unknown>;
+      for (const field of ["businessOutcome", "narrativeDirection", "campaignShape"]) {
+        if (typeof o?.[field] !== "string") {
+          return `"${field}" must be a string`;
+        }
+      }
+      for (const field of ["distributionAdvantage", "creativeExclusions"]) {
+        if (o?.[field] !== undefined && typeof o[field] !== "string") {
+          return `"${field}" must be a string when present`;
+        }
+      }
+      if (o?.openQuestions !== undefined && !Array.isArray(o.openQuestions)) {
+        return `"openQuestions" must be an array when present`;
+      }
+      return null;
+    }
+
     case "phases":
       if (!Array.isArray(obj)) return "expected a JSON array of phases";
       for (const p of obj) {

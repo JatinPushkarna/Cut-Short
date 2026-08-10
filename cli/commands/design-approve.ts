@@ -18,8 +18,13 @@ import {
   type EditCopyProposal,
 } from "./design-edit-copy";
 import { applyBuildProposal, type BuildProposal } from "./design-build";
+import {
+  applyObjectiveProposal,
+  type ObjectiveProposal,
+} from "./design-objective";
 
 export const APPROVABLE_STAGES = [
+  "objective",
   "phases",
   "topics",
   "content-structure",
@@ -78,6 +83,12 @@ export async function designApproveCommand(
   const design = readDesignData(slug);
 
   switch (stage) {
+    case "objective": {
+      const project = readProjectData(slug);
+      const pending = readPending<ObjectiveProposal>(pendingPath);
+      applyObjectiveProposal(slug, project, pending.proposal);
+      break;
+    }
     case "phases": {
       const pending = readPending<Phase[]>(pendingPath);
       applyPhasesProposal(slug, pending.proposal, design);

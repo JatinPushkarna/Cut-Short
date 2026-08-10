@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readDesignData } from "../lib/design";
 import { pendingCandidatePath, readProjectData, requireProjectDir } from "../lib/project";
+import { applyObjectiveProposal } from "./design-objective";
 import { applyPhasesProposal } from "./design-phases";
 import { applyTopicsProposal } from "./design-topics";
 import { applyContentStructureProposal } from "./design-content-structure";
@@ -25,6 +26,7 @@ vi.mock("../lib/project", () => ({
       `/projects/${s}/Campaign/.pending/${stage}${topicId ? `-${topicId}` : ""}.json`,
   ),
 }));
+vi.mock("./design-objective", () => ({ applyObjectiveProposal: vi.fn() }));
 vi.mock("./design-phases", () => ({ applyPhasesProposal: vi.fn() }));
 vi.mock("./design-topics", () => ({ applyTopicsProposal: vi.fn() }));
 vi.mock("./design-content-structure", () => ({
@@ -50,6 +52,8 @@ const readProjectDataMock = readProjectData as unknown as ReturnType<
 const requireProjectDirMock = requireProjectDir as unknown as ReturnType<
   typeof vi.fn
 >;
+const applyObjectiveProposalMock =
+  applyObjectiveProposal as unknown as ReturnType<typeof vi.fn>;
 const applyPhasesProposalMock = applyPhasesProposal as unknown as ReturnType<
   typeof vi.fn
 >;
@@ -79,6 +83,7 @@ describe("designApproveCommand", () => {
     unlinkSyncMock.mockReset();
     readDesignDataMock.mockReset();
     readProjectDataMock.mockReset();
+    applyObjectiveProposalMock.mockReset();
     applyPhasesProposalMock.mockReset();
     applyTopicsProposalMock.mockReset();
     applyContentStructureProposalMock.mockReset();
@@ -127,6 +132,30 @@ describe("designApproveCommand", () => {
     );
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining("No pending phases candidate"),
+    );
+  });
+
+  it("approves an objective candidate using the raw project data", async () => {
+    const project = { slug, objective: "raw objective" };
+    readProjectDataMock.mockReturnValue(project);
+    const proposal = {
+      businessOutcome: "grow follows",
+      narrativeDirection: "escalate",
+      campaignShape: "7 days",
+    };
+    readFileSyncMock.mockReturnValue(
+      JSON.stringify({ proposal, generatedBy: "claude" }),
+    );
+
+    await designApproveCommand(slug, "objective");
+
+    expect(applyObjectiveProposalMock).toHaveBeenCalledWith(
+      slug,
+      project,
+      proposal,
+    );
+    expect(unlinkSyncMock).toHaveBeenCalledWith(
+      pendingCandidatePath(slug, "objective"),
     );
   });
 
