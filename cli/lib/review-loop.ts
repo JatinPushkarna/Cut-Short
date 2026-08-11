@@ -47,7 +47,7 @@ export async function reviewLoop<T>(
   options: ReviewLoopOptions
 ): Promise<T> {
   if (!process.stdout.isTTY) {
-    console.log("\nAsking the selected agent...\n");
+    console.log(`\nAsking ${options.agent}...\n`);
     const result = generate(options.initialFeedback);
     console.log(render(result));
 
@@ -73,7 +73,7 @@ export async function reviewLoop<T>(
   let feedback: string | undefined = undefined;
 
   while (true) {
-    console.log("\nAsking the selected agent...\n");
+    console.log(`\nAsking ${options.agent}...\n`);
     const result = generate(feedback);
     console.log(render(result));
 

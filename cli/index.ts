@@ -13,7 +13,10 @@ import { designStatusCommand } from "./commands/design-status";
 import { designApproveCommand } from "./commands/design-approve";
 import { designAmendCommand } from "./commands/design-amend";
 import { renderCommand } from "./commands/render";
+import { previewCommand } from "./commands/preview";
+import { verifyRenderCommand } from "./commands/verify-render";
 import {
+  detectDefaultAgent,
   isAgentName,
   type AgentName,
   type AgentRunOptions,
@@ -68,7 +71,12 @@ program
     "--topic <id>",
     "Scope to a single topic id (content-structure: optional scope; edit-copy/build/approve: required for those stages)",
   )
-  .option("--agent <provider>", "Agent provider: claude or codex", "claude")
+  .option(
+    "--agent <provider>",
+    "Agent provider: claude or codex. Omit to auto-detect from the running " +
+      "environment (matches whichever coding agent is invoking this command); " +
+      "falls back to claude if neither is detected.",
+  )
   .option(
     "--agent-timeout <seconds>",
     "Maximum time for one agent attempt in seconds",
@@ -116,7 +124,7 @@ program
         topic?: string;
         finalize?: boolean;
         skipRender?: boolean;
-        agent: string;
+        agent?: string;
         agentTimeout: string;
         retries: string;
         feedback?: string;
@@ -125,13 +133,14 @@ program
         input?: string;
       },
     ) => {
-      if (!isAgentName(options.agent)) {
+      const requestedAgent = options.agent ?? detectDefaultAgent();
+      if (!isAgentName(requestedAgent)) {
         console.error(
-          `\nUnknown agent "${options.agent}" -- must be one of: claude, codex`,
+          `\nUnknown agent "${requestedAgent}" -- must be one of: claude, codex`,
         );
         process.exit(1);
       }
-      const agent: AgentName = options.agent;
+      const agent: AgentName = requestedAgent;
       const agentTimeoutSeconds = Number(options.agentTimeout);
       const retries = Number(options.retries);
       if (!Number.isInteger(agentTimeoutSeconds) || agentTimeoutSeconds <= 0) {
@@ -251,6 +260,29 @@ program
   .requiredOption("--topic <id>", "Topic id -- render operates on one built topic at a time")
   .action(async (slug: string, options: { topic: string }) => {
     return renderCommand(slug, options.topic);
+  });
+
+program
+  .command("preview <slug>")
+  .description(
+    "Open a built topic's composition in Remotion Studio for visual review -- starts Studio if it " +
+      "isn't already running (mechanical, no LLM call).",
+  )
+  .requiredOption("--topic <id>", "Topic id -- preview operates on one built topic at a time")
+  .action(async (slug: string, options: { topic: string }) => {
+    return previewCommand(slug, options.topic);
+  });
+
+program
+  .command("verify-render <slug>")
+  .description(
+    "Find every real cut point in a topic's Rendered/<topicId>.mp4 (ffmpeg scene detection) and " +
+      "extract a dense, every-frame contact sheet around each one, so a single-frame flash isn't " +
+      "missed the way sparse 10fps sampling can miss it (mechanical, no LLM call).",
+  )
+  .requiredOption("--topic <id>", "Topic id -- verify-render operates on one rendered topic at a time")
+  .action(async (slug: string, options: { topic: string }) => {
+    return verifyRenderCommand(slug, options.topic);
   });
 
 program.parse();

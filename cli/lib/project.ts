@@ -81,6 +81,14 @@ export function renderedVideoPath(slug: string, topicId: string): string {
   return path.join(renderedDir(slug), `${topicId}.mp4`);
 }
 
+// Verification/debug output only (contact sheets, check frames) -- never a
+// pipeline-owned asset. Sibling of Assets/Rendered/Final, per CLAUDE.md's
+// "clean up anything you put elsewhere" convention for where this kind of
+// output belongs.
+export function frameCheckDir(slug: string): string {
+  return path.join(projectDir(slug), ".frame-check");
+}
+
 // Finalized (full native resolution) extracted clips -- deliberately a
 // sibling of Assets/, not nested under it, so Assets/Video/ can stay a hard
 // "720p proxies only" guarantee: no code path that only ever needs to read

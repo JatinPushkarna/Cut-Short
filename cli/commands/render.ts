@@ -93,4 +93,15 @@ export async function renderCommand(slug: string, topicId: string): Promise<void
 
   saveDesignData(slug, design!);
   console.log(`\nRendered: ${outputPath}`);
+  console.log(
+    `\nNot a clean final export yet. Remotion Studio's preview doesn't catch every defect that ` +
+      `can appear in the actual exported file -- confirmed by a real single-frame flash that once ` +
+      `shipped this way. Before labeling this final:\n` +
+      `  1. (done) Rendered the reel.\n` +
+      `  2. Run \`cutshort verify-render ${slug} --topic ${topicId}\`.\n` +
+      `  3. Inspect every full-frame cut-boundary contact sheet it writes.\n` +
+      `  4. Do one normal-speed manual watch in CapCut or VLC -- verify-render's scene detection can ` +
+      `miss a subtle cut, a fade, or a cut hidden under full-screen text.\n` +
+      `  5. Only then call it final.\n`,
+  );
 }

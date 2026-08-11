@@ -593,7 +593,7 @@ export function applyBuildProposal(
   console.log(
     `\nSaved build output (720p proxy) for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
   );
-  console.log(`\nRun \`npm run dev\` to preview in Remotion Studio.`);
+  console.log(`\nRun \`cutshort preview ${slug} --topic ${topicId}\` to review it in Remotion Studio.`);
   console.log(
     `\nOnce approved, run \`cutshort design build ${slug} --topic ${topicId} --finalize\` for full resolution.\n`,
   );
