@@ -14,6 +14,7 @@ import {
   writeProjectData,
   type ProjectData,
 } from "../lib/project";
+import { transcribeCommand } from "./transcribe";
 
 type Answers = {
   projectName: string;
@@ -161,8 +162,6 @@ export async function initCommand(): Promise<void> {
   if (scriptAbsPath) {
     console.log(`  - script referenced (not copied): ${scriptAbsPath}`);
   }
-  console.log(
-    `\nNext: run \`npm run cutshort -- transcribe ${slug}\`, then \`npm run cutshort -- ` +
-      `design objective ${slug}\` -- required before \`design phases\` will run.\n`,
-  );
+  console.log(`\nStarting transcription automatically...\n`);
+  await transcribeCommand(slug, { model: "medium" });
 }

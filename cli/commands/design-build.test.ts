@@ -11,6 +11,7 @@ import { readProjectData, type ProjectData } from "../lib/project";
 import { runAgentTaskJson } from "../lib/agent/runner";
 import { reviewLoop } from "../lib/review-loop";
 import { renderCommand } from "./render";
+import { verifyRenderCommand } from "./verify-render";
 import { designBuildCommand, type BuildProposal } from "./design-build";
 
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
@@ -45,6 +46,7 @@ vi.mock("../lib/project", () => ({
 vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));
 vi.mock("./render", () => ({ renderCommand: vi.fn() }));
+vi.mock("./verify-render", () => ({ verifyRenderCommand: vi.fn() }));
 
 const execFileSyncMock = execFileSync as unknown as ReturnType<typeof vi.fn>;
 const existsSyncMock = fs.existsSync as unknown as ReturnType<typeof vi.fn>;
@@ -67,6 +69,9 @@ const runAgentTaskJsonMock = runAgentTaskJson as unknown as ReturnType<
 >;
 const reviewLoopMock = reviewLoop as unknown as ReturnType<typeof vi.fn>;
 const renderCommandMock = renderCommand as unknown as ReturnType<
+  typeof vi.fn
+>;
+const verifyRenderCommandMock = verifyRenderCommand as unknown as ReturnType<
   typeof vi.fn
 >;
 
@@ -780,8 +785,34 @@ describe("designBuildCommand", () => {
       });
 
       expect(renderCommandMock).not.toHaveBeenCalled();
+      // Nothing was rendered, so there's nothing to verify either.
+      expect(verifyRenderCommandMock).not.toHaveBeenCalled();
       const loggedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
       expect(loggedOutput).toContain("Skipping render");
+    });
+
+    it("auto-verifies after rendering by default", async () => {
+      readProjectDataMock.mockReturnValue(makeProject());
+      readDesignDataMock.mockReturnValue(makeProxyDesign());
+
+      await designBuildCommand(slug, "topic-a", { finalize: true });
+
+      expect(verifyRenderCommandMock).toHaveBeenCalledWith(slug, "topic-a");
+    });
+
+    it("skips verify-render when --skip-verify is passed", async () => {
+      readProjectDataMock.mockReturnValue(makeProject());
+      readDesignDataMock.mockReturnValue(makeProxyDesign());
+
+      await designBuildCommand(slug, "topic-a", {
+        finalize: true,
+        skipVerify: true,
+      });
+
+      expect(renderCommandMock).toHaveBeenCalledWith(slug, "topic-a");
+      expect(verifyRenderCommandMock).not.toHaveBeenCalled();
+      const loggedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
+      expect(loggedOutput).toContain("Skipping verify-render");
     });
   });
 });

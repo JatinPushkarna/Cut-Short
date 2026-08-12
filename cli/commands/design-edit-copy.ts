@@ -19,6 +19,7 @@ import {
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 import type { TemplateManifest } from "../../src/templates/contract";
+import { designBuildCommand } from "./design-build";
 
 // The project's locked template is a known path (src/templates/<slug>/manifest.ts)
 // -- reading it directly is simpler and more reliable than routing it through
@@ -199,14 +200,16 @@ export function findLockedStructure(
 // The save step -- identical whether the proposal came from a human
 // approving the interactive menu or from `cutshort design approve` reading
 // back a non-interactive candidate. Exported so design-approve.ts can call it.
-export function applyEditCopyProposal(
+export async function applyEditCopyProposal(
   slug: string,
   design: DesignData,
   structure: ContentStructure,
   topicId: string,
   proposal: EditCopyProposal,
   agent: AgentName,
-): void {
+): Promise<void> {
+  const alreadyBuilt = Boolean(structure.build);
+
   structure.editCopy = {
     ...proposal.editCopy,
     generatedBy: agent,
@@ -217,9 +220,17 @@ export function applyEditCopyProposal(
   console.log(
     `\nSaved edit copy for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
   );
-  console.log(
-    `\nNext: run \`npm run cutshort -- design build ${slug} --topic ${topicId}\`\n`,
-  );
+
+  // Never auto-clobber a build that already exists for this topic.
+  if (alreadyBuilt) {
+    console.log(
+      `\nA build already exists for topic ${topicId} -- not auto-continuing. Run ` +
+        `\`cutshort design build ${slug} --topic ${topicId}\` yourself if you want to redo it.\n`,
+    );
+    return;
+  }
+  console.log(`\nStarting design build automatically for topic ${topicId}...\n`);
+  await designBuildCommand(slug, topicId);
 }
 
 export async function designEditCopyCommand(
@@ -272,5 +283,5 @@ export async function designEditCopyCommand(
     },
   );
 
-  applyEditCopyProposal(slug, design!, structure, topicId, proposal, agent);
+  await applyEditCopyProposal(slug, design!, structure, topicId, proposal, agent);
 }

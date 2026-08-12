@@ -86,12 +86,12 @@ export async function designApproveCommand(
     case "objective": {
       const project = readProjectData(slug);
       const pending = readPending<ObjectiveProposal>(pendingPath);
-      applyObjectiveProposal(slug, project, pending.proposal);
+      await applyObjectiveProposal(slug, project, pending.proposal);
       break;
     }
     case "phases": {
       const pending = readPending<Phase[]>(pendingPath);
-      applyPhasesProposal(slug, pending.proposal, design);
+      await applyPhasesProposal(slug, pending.proposal, design);
       break;
     }
     case "topics": {
@@ -100,7 +100,7 @@ export async function designApproveCommand(
         process.exit(1);
       }
       const pending = readPending<TopicsByPhase>(pendingPath);
-      applyTopicsProposal(slug, design, pending.proposal);
+      await applyTopicsProposal(slug, design, pending.proposal);
       break;
     }
     case "content-structure": {
@@ -110,7 +110,7 @@ export async function designApproveCommand(
       }
       const project = readProjectData(slug);
       const pending = readPending<ContentStructureProposal>(pendingPath);
-      applyContentStructureProposal(
+      await applyContentStructureProposal(
         slug,
         design,
         project,
@@ -126,7 +126,7 @@ export async function designApproveCommand(
       }
       const { structure } = findLockedStructure(design, slug, topicId);
       const pending = readPending<EditCopyProposal>(pendingPath);
-      applyEditCopyProposal(
+      await applyEditCopyProposal(
         slug,
         design!,
         structure,
@@ -143,7 +143,7 @@ export async function designApproveCommand(
       }
       const { structure } = findLockedStructure(design, slug, topicId);
       const pending = readPending<BuildProposal>(pendingPath);
-      applyBuildProposal(
+      await applyBuildProposal(
         slug,
         design!,
         structure,

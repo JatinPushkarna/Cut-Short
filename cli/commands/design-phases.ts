@@ -14,6 +14,7 @@ import {
   requireProjectDir,
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
+import { designTopicsCommand } from "./design-topics";
 
 function buildPrompt(
   objective: string,
@@ -68,12 +69,13 @@ function render(phases: Phase[]): string {
 // The save step -- identical whether the phases came from a human approving
 // the interactive menu or from `cutshort design approve` reading back a
 // non-interactive candidate. Exported so design-approve.ts can call it.
-export function applyPhasesProposal(
+export async function applyPhasesProposal(
   slug: string,
   phases: Phase[],
   existing: DesignData | null,
-): void {
-  if (hasTopics(existing)) {
+): Promise<void> {
+  const alreadyHasTopics = hasTopics(existing);
+  if (alreadyHasTopics) {
     console.log(
       "\nWarning: this project already has topics/content structures built on the previous phases -- " +
         "re-running `design topics` is recommended before continuing.",
@@ -84,7 +86,17 @@ export function applyPhasesProposal(
   console.log(
     `\nSaved ${phases.length} phase(s) to Campaign/design.json and Campaign/design.md`,
   );
-  console.log(`\nNext: run \`npm run cutshort -- design topics ${slug}\`\n`);
+
+  // Never auto-clobber topics/content-structure/etc. that already exist on
+  // an earlier phase set -- the warning above already told the human that.
+  if (alreadyHasTopics) {
+    console.log(
+      `\nNot auto-continuing -- run \`cutshort design topics ${slug}\` yourself when ready.\n`,
+    );
+    return;
+  }
+  console.log(`\nStarting design topics automatically...\n`);
+  await designTopicsCommand(slug);
 }
 
 export async function designPhasesCommand(
@@ -128,5 +140,5 @@ export async function designPhasesCommand(
     },
   );
 
-  applyPhasesProposal(slug, phases, existing);
+  await applyPhasesProposal(slug, phases, existing);
 }

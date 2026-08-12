@@ -20,6 +20,7 @@ import {
   type ProjectData,
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
+import { designEditCopyCommand } from "./design-edit-copy";
 
 // Exported so a scripted/manual validation run can call the exact same
 // prompt-building logic the real command uses, without going through
@@ -268,13 +269,13 @@ function render(proposal: ContentStructureProposal): string {
 // it. `agent` here is whichever agent actually generated the proposal
 // (from the pending file's own metadata in the non-interactive case, not
 // necessarily whatever --agent a later `approve` invocation might pass).
-export function applyContentStructureProposal(
+export async function applyContentStructureProposal(
   slug: string,
   design: DesignData,
   project: ProjectData,
   proposal: ContentStructureProposal,
   agent: AgentName,
-): void {
+): Promise<void> {
   const { templateDecision, contentStructuresByTopic } = proposal;
 
   const byId = new Map(
@@ -328,9 +329,30 @@ export function applyContentStructureProposal(
     `\nSaved content structures to Campaign/design.json and Campaign/design.md`,
   );
   console.log(`\nUsing template: ${templateDecision.templateSlug}`);
-  console.log(
-    `\nNext: run \`npm run cutshort -- design edit-copy ${slug} --topic <id>\`\n`,
-  );
+
+  // Each topic just got 2-3 DIFFERENT variants proposed -- edit-copy needs
+  // exactly one locked variant per topic (see findLockedStructure), so only
+  // auto-continue for a topic that happened to end up with exactly one.
+  // Otherwise this is a real human choice (which variant), not friction.
+  for (const entry of contentStructuresByTopic) {
+    const topic = design.phases
+      .flatMap((phase) => phase.topics ?? [])
+      .find((t) => t.id === entry.topicId);
+    const variantCount = topic?.contentStructures?.length ?? 0;
+
+    if (variantCount === 1) {
+      console.log(
+        `\nStarting design edit-copy automatically for topic ${entry.topicId}...\n`,
+      );
+      await designEditCopyCommand(slug, entry.topicId);
+    } else if (variantCount > 1) {
+      console.log(
+        `\nTopic "${entry.topicId}" has ${variantCount} content structure variants saved -- ` +
+          `edit-copy needs exactly one. Trim Campaign/design.json down to the variant you want, ` +
+          `then run \`cutshort design edit-copy ${slug} --topic ${entry.topicId}\` yourself.\n`,
+      );
+    }
+  }
 }
 
 export async function designContentStructureCommand(
@@ -388,5 +410,5 @@ export async function designContentStructureCommand(
     },
   );
 
-  applyContentStructureProposal(slug, design!, project, proposal, agent);
+  await applyContentStructureProposal(slug, design!, project, proposal, agent);
 }

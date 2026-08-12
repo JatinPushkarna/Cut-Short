@@ -98,6 +98,10 @@ program
     "finalize only: don't auto-render after finalizing -- useful when batch-finalizing several topics before rendering them all",
   )
   .option(
+    "--skip-verify",
+    "finalize only: don't auto-run verify-render after rendering -- implied automatically when --skip-render is passed",
+  )
+  .option(
     "--feedback <notes>",
     "Non-interactive only (no TTY): regenerate this stage's candidate with revision notes, same as choosing " +
       '"Give feedback and regenerate" in the interactive menu. On Windows, long or multi-line ' +
@@ -124,6 +128,7 @@ program
         topic?: string;
         finalize?: boolean;
         skipRender?: boolean;
+        skipVerify?: boolean;
         agent?: string;
         agentTimeout: string;
         retries: string;
@@ -209,6 +214,7 @@ program
           return designBuildCommand(slug, options.topic, {
             finalize: options.finalize,
             skipRender: options.skipRender,
+            skipVerify: options.skipVerify,
             agent,
             feedback: options.feedback,
             agentOptions,

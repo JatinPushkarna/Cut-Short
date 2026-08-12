@@ -10,6 +10,7 @@ import {
 import { runAgentTaskJson } from "../lib/agent/runner";
 import { reviewLoop } from "../lib/review-loop";
 import { designContentStructureCommand } from "./design-content-structure";
+import { designEditCopyCommand } from "./design-edit-copy";
 
 vi.mock("node:fs", () => ({
   default: {
@@ -35,6 +36,7 @@ vi.mock("../lib/project", () => ({
 }));
 vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));
+vi.mock("./design-edit-copy", () => ({ designEditCopyCommand: vi.fn() }));
 
 const existsSyncMock = fs.existsSync as unknown as ReturnType<typeof vi.fn>;
 const mkdirSyncMock = fs.mkdirSync as unknown as ReturnType<typeof vi.fn>;
@@ -57,6 +59,9 @@ const runAgentTaskJsonMock = runAgentTaskJson as unknown as ReturnType<
   typeof vi.fn
 >;
 const reviewLoopMock = reviewLoop as unknown as ReturnType<typeof vi.fn>;
+const designEditCopyCommandMock = designEditCopyCommand as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 const slug = "test-project";
 
@@ -157,6 +162,7 @@ describe("designContentStructureCommand", () => {
     writeProjectDataMock.mockReset();
     runAgentTaskJsonMock.mockReset();
     reviewLoopMock.mockReset();
+    designEditCopyCommandMock.mockReset();
 
     // Drive reviewLoop by actually invoking the `generate` callback it was
     // given, so runAgentTaskJson gets called and its prompt argument is
@@ -451,5 +457,53 @@ describe("designContentStructureCommand", () => {
       expect.stringContaining('"does-not-exist" not found'),
     );
     expect(runAgentTaskJsonMock).not.toHaveBeenCalled();
+  });
+
+  it("auto-continues into edit-copy for a topic that ended up with exactly one variant", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(structuredClone(designWithTopic));
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
+
+    await designContentStructureCommand(slug);
+
+    expect(designEditCopyCommandMock).toHaveBeenCalledWith(slug, "topic-a");
+  });
+
+  it("does NOT auto-continue when a topic ends up with more than one variant -- prints guidance instead", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "default" }));
+    readDesignDataMock.mockReturnValue(structuredClone(designWithTopic));
+    runAgentTaskJsonMock.mockReturnValue(
+      makeProposal({
+        contentStructuresByTopic: [
+          {
+            topicId: "topic-a",
+            contentStructures: [
+              {
+                variant: "a",
+                hook: "h1",
+                bridge: "b1",
+                content: "c1",
+                cta: "cta1",
+              },
+              {
+                variant: "b",
+                hook: "h2",
+                bridge: "b2",
+                content: "c2",
+                cta: "cta2",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    await designContentStructureCommand(slug);
+
+    expect(designEditCopyCommandMock).not.toHaveBeenCalled();
+    const renderedOutput = (console.log as unknown as ReturnType<typeof vi.fn>).mock.calls
+      .map((call) => call[0])
+      .join("\n");
+    expect(renderedOutput).toContain("needs exactly one");
   });
 });

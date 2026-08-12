@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { objectiveMdPath, renderObjectiveMd } from "../lib/objective";
+import { readDesignData } from "../lib/design";
 import { runAgentTaskJson } from "../lib/agent/runner";
 import type { AgentName, AgentRunOptions } from "../lib/agent/types";
 import {
@@ -12,6 +13,7 @@ import {
   type ProjectData,
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
+import { designPhasesCommand } from "./design-phases";
 
 export type ObjectiveProposal = {
   businessOutcome: string;
@@ -163,11 +165,11 @@ function render(proposal: ObjectiveProposal): string {
 // back a non-interactive candidate. Exported so design-approve.ts can call
 // it. This stage is REQUIRED: design-phases.ts refuses to run until
 // campaignShape is set, which only happens here.
-export function applyObjectiveProposal(
+export async function applyObjectiveProposal(
   slug: string,
   project: ProjectData,
   proposal: ObjectiveProposal,
-): void {
+): Promise<void> {
   const updated: ProjectData = {
     ...project,
     // Overwrites the raw setup answer in place, not a separate field --
@@ -185,9 +187,20 @@ export function applyObjectiveProposal(
   fs.writeFileSync(objectiveMdPath(slug), renderObjectiveMd(updated));
 
   console.log(`\nSaved to Campaign/project.json and Campaign/objective.md`);
-  console.log(
-    `\nNext: run \`npm run cutshort -- design phases ${slug}\` (or refine further with --feedback).\n`,
-  );
+
+  // Only auto-continue into phases if nothing downstream exists yet -- never
+  // clobber phases/topics/etc. that were already built on an earlier
+  // objective (e.g. this was a re-approval after --feedback).
+  const design = readDesignData(slug);
+  if (design?.phases?.length) {
+    console.log(
+      `\nPhases already exist for ${slug} -- not auto-continuing. Run ` +
+        `\`cutshort design phases ${slug}\` yourself if you want to redo them.\n`,
+    );
+    return;
+  }
+  console.log(`\nStarting design phases automatically...\n`);
+  await designPhasesCommand(slug);
 }
 
 export async function designObjectiveCommand(
@@ -217,5 +230,5 @@ export async function designObjectiveCommand(
     },
   );
 
-  applyObjectiveProposal(slug, project, proposal);
+  await applyObjectiveProposal(slug, project, proposal);
 }

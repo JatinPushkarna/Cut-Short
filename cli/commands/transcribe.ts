@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { readProjectData, requireProjectDir, srtDir } from "../lib/project";
+import { designObjectiveCommand } from "./design-objective";
 
 // Only sizes actually cached locally -- WhisperModel runs with
 // local_files_only=True (see cli/lib/transcribe.py), so anything else fails
@@ -49,5 +50,7 @@ export async function transcribeCommand(slug: string, options: TranscribeOptions
   console.log(`\nDone.`);
   console.log(`  - ${path.relative(process.cwd(), srtOutPath)}`);
   console.log(`  - ${path.relative(process.cwd(), wordsOutPath)}`);
-  console.log(`\nNext: run \`npm run cutshort -- design ${slug}\`\n`);
+
+  console.log(`\nStarting design objective automatically...\n`);
+  await designObjectiveCommand(slug);
 }

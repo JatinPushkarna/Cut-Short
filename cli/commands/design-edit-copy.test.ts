@@ -9,6 +9,7 @@ import { readProjectData, type ProjectData } from "../lib/project";
 import { runAgentTaskJson } from "../lib/agent/runner";
 import { reviewLoop } from "../lib/review-loop";
 import { designEditCopyCommand } from "./design-edit-copy";
+import { designBuildCommand } from "./design-build";
 
 vi.mock("../lib/design", () => ({
   readDesignData: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("../lib/project", () => ({
 }));
 vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));
+vi.mock("./design-build", () => ({ designBuildCommand: vi.fn() }));
 
 const readDesignDataMock = readDesignData as unknown as ReturnType<
   typeof vi.fn
@@ -39,6 +41,9 @@ const runAgentTaskJsonMock = runAgentTaskJson as unknown as ReturnType<
   typeof vi.fn
 >;
 const reviewLoopMock = reviewLoop as unknown as ReturnType<typeof vi.fn>;
+const designBuildCommandMock = designBuildCommand as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 const slug = "test-project";
 
@@ -89,6 +94,7 @@ describe("designEditCopyCommand", () => {
     readProjectDataMock.mockReset();
     runAgentTaskJsonMock.mockReset();
     reviewLoopMock.mockReset();
+    designBuildCommandMock.mockReset();
 
     // Drive reviewLoop by actually invoking the `generate` callback it was
     // given, so runAgentTaskJson gets called and its prompt is inspectable.
@@ -267,5 +273,45 @@ describe("designEditCopyCommand", () => {
     expect(prompt).toContain(
       "A vague description can't be built from directly",
     );
+  });
+
+  it("auto-continues into design build for the same topic after saving", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
+    readDesignDataMock.mockReturnValue(makeDesign());
+    runAgentTaskJsonMock.mockReturnValue({
+      editCopy: { sourceVideo: "/video.mp4", rows: [] },
+    });
+
+    await designEditCopyCommand(slug, "topic-a");
+
+    expect(designBuildCommandMock).toHaveBeenCalledWith(slug, "topic-a");
+  });
+
+  it("does NOT auto-continue into build when one already exists for this topic", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
+    readDesignDataMock.mockReturnValue(
+      makeDesign([
+        {
+          variant: "a",
+          hook: "h",
+          bridge: "b",
+          content: "c",
+          cta: "cta",
+          build: {
+            compositionFile: "src/x/A.tsx",
+            extractedClip: "clip.mp4",
+            hookStill: null,
+            quality: "proxy",
+          },
+        },
+      ]),
+    );
+    runAgentTaskJsonMock.mockReturnValue({
+      editCopy: { sourceVideo: "/video.mp4", rows: [] },
+    });
+
+    await designEditCopyCommand(slug, "topic-a");
+
+    expect(designBuildCommandMock).not.toHaveBeenCalled();
   });
 });

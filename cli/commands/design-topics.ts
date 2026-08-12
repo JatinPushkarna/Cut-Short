@@ -14,6 +14,7 @@ import {
   requireProjectDir,
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
+import { designContentStructureCommand } from "./design-content-structure";
 
 function buildPrompt(phases: Phase[], feedback?: string): string {
   const lines: string[] = [];
@@ -98,11 +99,11 @@ function render(byPhase: TopicsByPhase): string {
 // The save step -- identical whether topicsByPhase came from a human
 // approving the interactive menu or from `cutshort design approve` reading
 // back a non-interactive candidate. Exported so design-approve.ts can call it.
-export function applyTopicsProposal(
+export async function applyTopicsProposal(
   slug: string,
   design: DesignData,
   topicsByPhase: TopicsByPhase,
-): void {
+): Promise<void> {
   const contentStructuresExisted = hasContentStructures(design);
 
   const byId = new Map(
@@ -129,8 +130,37 @@ export function applyTopicsProposal(
 
   saveDesignData(slug, design);
   console.log(`\nSaved topics to Campaign/design.json and Campaign/design.md`);
+
+  // Never auto-clobber content structures that already exist downstream.
+  if (contentStructuresExisted) {
+    console.log(
+      `\nNot auto-continuing -- run \`cutshort design content-structure ${slug} --topic <id>\` ` +
+        `yourself when ready.\n`,
+    );
+    return;
+  }
+
+  const allTopics = design.phases.flatMap((phase) => phase.topics ?? []);
+  if (allTopics.length === 0) {
+    console.log(`\nNo topics to continue with.\n`);
+    return;
+  }
+  if (allTopics.length === 1) {
+    console.log(
+      `\nStarting design content-structure automatically for the only topic (${allTopics[0].id})...\n`,
+    );
+    await designContentStructureCommand(slug, allTopics[0].id);
+    return;
+  }
+
   console.log(
-    `\nNext: run \`npm run cutshort -- design content-structure ${slug}\`\n`,
+    `\n${allTopics.length} topics were created -- which one should I build content-structure for first?`,
+  );
+  for (const t of allTopics) {
+    console.log(`  - ${t.id}: ${t.title}`);
+  }
+  console.log(
+    `\nRun \`cutshort design content-structure ${slug} --topic <id>\` with the one you want.\n`,
   );
 }
 
@@ -167,5 +197,5 @@ export async function designTopicsCommand(
     },
   );
 
-  applyTopicsProposal(slug, design, topicsByPhase);
+  await applyTopicsProposal(slug, design, topicsByPhase);
 }

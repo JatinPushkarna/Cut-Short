@@ -24,6 +24,7 @@ import {
 import { reviewLoop } from "../lib/review-loop";
 import { readTemplateManifest } from "./design-edit-copy";
 import { renderCommand } from "./render";
+import { verifyRenderCommand } from "./verify-render";
 import type { TemplateManifest } from "../../src/templates/contract";
 
 // Purely mechanical -- no LLM call. Used by `design build --finalize` to
@@ -395,6 +396,7 @@ export async function designBuildCommand(
   options: {
     finalize?: boolean;
     skipRender?: boolean;
+    skipVerify?: boolean;
     agent?: AgentName;
     feedback?: string;
     agentOptions?: AgentRunOptions;
@@ -520,6 +522,16 @@ export async function designBuildCommand(
 
     console.log(`\nRendering...`);
     await renderCommand(slug, topicId);
+
+    if (options.skipVerify) {
+      console.log(
+        `\nSkipping verify-render (--skip-verify). Run \`cutshort verify-render ${slug} --topic ${topicId}\` when ready.\n`,
+      );
+      return;
+    }
+
+    console.log(`\nVerifying render...`);
+    await verifyRenderCommand(slug, topicId);
     return;
   }
 
@@ -593,8 +605,13 @@ export function applyBuildProposal(
   console.log(
     `\nSaved build output (720p proxy) for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
   );
-  console.log(`\nRun \`cutshort preview ${slug} --topic ${topicId}\` to review it in Remotion Studio.`);
   console.log(
-    `\nOnce approved, run \`cutshort design build ${slug} --topic ${topicId} --finalize\` for full resolution.\n`,
+    `\nThis is the one required manual checkpoint in the pipeline -- not auto-continuing. ` +
+      `Run \`cutshort preview ${slug} --topic ${topicId}\` and actually watch it in Remotion Studio ` +
+      `(crop/timing bugs pass this command's own self-check but are only visible by looking).`,
+  );
+  console.log(
+    `\nOnly once it looks right, run \`cutshort design build ${slug} --topic ${topicId} --finalize\` ` +
+      `for full resolution (this auto-continues into render, then verify-render).\n`,
   );
 }

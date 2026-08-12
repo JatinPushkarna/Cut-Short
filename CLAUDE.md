@@ -41,21 +41,41 @@ step for your own commits.
 Building a topic's composition, extracting its clip, or rendering it is
 not a task to improvise with raw `ffmpeg`/`npx remotion render` calls or a
 hand-written `.tsx` file, even though you have the tools to do exactly
-that. It only happens through the pipeline: `cutshort design phases ->
-topics -> content-structure -> edit-copy -> build -> build --finalize`.
-`--finalize` auto-renders once it finishes (mechanical, since the cut it's
-finalizing was already approved at the proxy stage) -- pass `--skip-render`
-to finalize without rendering yet, e.g. when finalizing several topics
-before rendering them all. Only run `cutshort render` by itself to
-re-render an already-finalized topic.
+that. It only happens through the pipeline: `init -> transcribe -> design
+objective -> phases -> topics -> content-structure -> edit-copy -> build
+-> build --finalize -> render -> verify-render`.
+
+**Every mechanical, no-judgment transition in that chain auto-continues on
+its own** — you never need to separately invoke the next command yourself.
+`init` auto-runs `transcribe`; `transcribe` auto-starts `design objective`;
+approving `objective`/`phases`/`topics`/`content-structure`/`edit-copy`
+each auto-starts the next stage's generation; `build --finalize`
+auto-chains into `render`, which auto-chains into `verify-render`
+(`--skip-render`/`--skip-verify` opt out, e.g. when batch-finalizing
+several topics before rendering them all). This is deliberate, not scope
+creep: only the *invocation* of the next step is automatic — the design
+**decision itself still always stops for approval** at every judgment
+stage (objective/phases/topics/content-structure/edit-copy/build), the
+same as before. Auto-chaining also never overwrites work that already
+exists downstream (e.g. re-approving `phases` after `topics` was already
+built won't blindly regenerate topics) — it prints a note and stops
+instead of auto-continuing in that case.
+
+**One exception, unconditional:** the build proxy's approval
+(`design approve --stage build`) never auto-triggers `--finalize`. That's
+the one required manual checkpoint in the whole pipeline — see "`build`
+specifically needs a real look" below for why, and never skip it.
 
 The `design phases/topics/content-structure/edit-copy/build` steps work
 two different ways, chosen automatically, not by a flag: a human at their
 own interactive terminal gets the classic approve/regenerate menu, same
-as always. **An agent invoked non-interactively (`codex exec`/`claude
--p`, no real TTY) has a second, equally real path — this is not a
-limitation to route around, it's the actual intended way to drive these
-stages without a human touching a terminal:**
+as always, and now rides straight through every auto-chained stage in one
+sitting (each stop is still a real approve/feedback/regenerate prompt,
+just without needing to separately type the next command). **An agent
+invoked non-interactively (`codex exec`/`claude -p`, no real TTY) has a
+second, equally real path — this is not a limitation to route around,
+it's the actual intended way to drive these stages without a human
+touching a terminal:**
 
 1. Run the stage command as normal. With no TTY, it generates one
    proposal, saves it as an *unapproved* pending candidate, and prints it
@@ -69,12 +89,19 @@ stages without a human touching a terminal:**
 4. Once they actually say yes, run `cutshort design approve <slug>
    --stage <stage> [--topic <id>]` yourself — this records it for real,
    the same save `design.json` gets from a human's "Approve" keystroke.
+   **This same command also auto-starts the next stage's generation and
+   prints ITS proposal in the same output** — read past the approval
+   confirmation for a second, brand-new pending proposal, and present
+   that one to the user too rather than stopping at "approved."
 5. If you already know the exact final content (it was fully decided in
    an earlier conversation — nothing left to invent, just something to
    record), skip generation entirely: `cutshort design amend <slug>
    --stage <stage> --input <file.json> [--topic <id>]` writes it straight
    to the same pending-candidate file step 1 would have produced, no
    agent call, no wasted tokens reproducing text that's already known.
+   `amend` itself never auto-chains — only `design approve` does — so
+   follow it with an explicit `design approve` when you're ready to lock
+   it in and continue.
 
 **`build` specifically needs a real look, not just a green checklist.**
 Its proposal prints a self-verification table (resolution, duration,
@@ -150,6 +177,17 @@ specific decision (which topic, which variant) is not the same as a
 standing instruction change. Don't edit a shared skill or instruction
 file for a one-off call unless the user explicitly asks you to generalize
 it.
+
+**This rule is about what a casual "go ahead" licenses you to infer in
+conversation — it is not contradicted by the pipeline's own auto-chaining**
+(see "Composition work goes through..." above). The tool auto-starting the
+next stage's *generation* after a real `design approve` never skips a
+decision — it only ever produces a fresh, unapproved proposal that still
+needs the same explicit review this section describes. What this rule
+still forbids is *you* deciding, from a vague "go ahead," to treat one
+approval as cover for running further than the tool's own auto-chain
+actually reached, or for approving something on the user's behalf that a
+`design approve` command didn't record.
 
 ## Two different kinds of work happen in this repo — know which one you're doing
 
