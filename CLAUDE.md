@@ -115,6 +115,18 @@ to the user and wait for them to say it looks right before running
 `design approve --stage build`, the same way you would for any other
 stage's content.
 
+**Since then, an automated pass runs before that message is even shown**
+(`cutshort build-check <slug> --topic <id>`, wired to run automatically as
+part of saving a proxy build): it renders the composition to a scratch file
+(never `Rendered/`), finds every real cut point the same way
+`verify-render` does, and additionally checks whether the subject stays
+well-framed *throughout* each shot (not just at a cut) by sampling mid-shot
+frames every ~0.5s for any shot longer than ~1s. This is a safety net, not
+a replacement — it can still miss things a human catches, and its findings
+(if any) get surfaced alongside the Studio-review instruction, never
+instead of it. `git log` / `cli/lib/frame-check.ts` for the exact sampling
+math if it ever needs revisiting.
+
 None of this changes the absolutes: never hand-write `design.json`
 directly, and never fabricate or simulate an approval the user didn't
 actually give. The point of the flow above is that there's a real, correct

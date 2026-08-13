@@ -12,6 +12,7 @@ import { runAgentTaskJson } from "../lib/agent/runner";
 import { reviewLoop } from "../lib/review-loop";
 import { renderCommand } from "./render";
 import { verifyRenderCommand } from "./verify-render";
+import { designBuildCheckCommand } from "./design-build-check";
 import { designBuildCommand, type BuildProposal } from "./design-build";
 
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
@@ -47,6 +48,7 @@ vi.mock("../lib/agent/runner", () => ({ runAgentTaskJson: vi.fn() }));
 vi.mock("../lib/review-loop", () => ({ reviewLoop: vi.fn() }));
 vi.mock("./render", () => ({ renderCommand: vi.fn() }));
 vi.mock("./verify-render", () => ({ verifyRenderCommand: vi.fn() }));
+vi.mock("./design-build-check", () => ({ designBuildCheckCommand: vi.fn() }));
 
 const execFileSyncMock = execFileSync as unknown as ReturnType<typeof vi.fn>;
 const existsSyncMock = fs.existsSync as unknown as ReturnType<typeof vi.fn>;
@@ -72,6 +74,9 @@ const renderCommandMock = renderCommand as unknown as ReturnType<
   typeof vi.fn
 >;
 const verifyRenderCommandMock = verifyRenderCommand as unknown as ReturnType<
+  typeof vi.fn
+>;
+const designBuildCheckCommandMock = designBuildCheckCommand as unknown as ReturnType<
   typeof vi.fn
 >;
 
@@ -157,6 +162,12 @@ describe("designBuildCommand", () => {
     readProjectDataMock.mockReset();
     runAgentTaskJsonMock.mockReset();
     reviewLoopMock.mockReset();
+    designBuildCheckCommandMock.mockReset();
+    designBuildCheckCommandMock.mockResolvedValue({
+      flashesFound: [],
+      framingIssues: [],
+      clean: true,
+    });
 
     // Mirrors what the real reviewLoop does: call generate, then log render(result)
     // -- so render()'s own file-existence-check warning is actually exercised.
@@ -404,6 +415,86 @@ describe("designBuildCommand", () => {
       generatedBy: "claude",
       approvedAt: expect.any(String),
     });
+  });
+
+  it("runs the automated build check before printing the Studio review message", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
+    readDesignDataMock.mockReturnValue(
+      makeDesign([
+        {
+          variant: "a",
+          hook: "h",
+          bridge: "b",
+          content: "c",
+          cta: "cta",
+          editCopy: lockedEditCopy,
+        },
+      ]),
+    );
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
+
+    await designBuildCommand(slug, "topic-a");
+
+    expect(designBuildCheckCommandMock).toHaveBeenCalledWith(slug, "topic-a", "claude");
+  });
+
+  it("prints a clean summary when the automated check finds nothing", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
+    readDesignDataMock.mockReturnValue(
+      makeDesign([
+        {
+          variant: "a",
+          hook: "h",
+          bridge: "b",
+          content: "c",
+          cta: "cta",
+          editCopy: lockedEditCopy,
+        },
+      ]),
+    );
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
+    designBuildCheckCommandMock.mockResolvedValue({
+      flashesFound: [],
+      framingIssues: [],
+      clean: true,
+    });
+
+    await designBuildCommand(slug, "topic-a");
+
+    const renderedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
+    expect(renderedOutput).toContain("Automated check: clean");
+  });
+
+  it("prints specific findings when the automated check finds issues", async () => {
+    readProjectDataMock.mockReturnValue(makeProject({ template: "5-beats" }));
+    readDesignDataMock.mockReturnValue(
+      makeDesign([
+        {
+          variant: "a",
+          hook: "h",
+          bridge: "b",
+          content: "c",
+          cta: "cta",
+          editCopy: lockedEditCopy,
+        },
+      ]),
+    );
+    runAgentTaskJsonMock.mockReturnValue(makeProposal());
+    designBuildCheckCommandMock.mockResolvedValue({
+      flashesFound: [{ timestamp: 8.13, notes: "near-black frame at the cut" }],
+      framingIssues: [{ timestamp: 12.4, notes: "subject drifted out of frame" }],
+      clean: false,
+    });
+
+    await designBuildCommand(slug, "topic-a");
+
+    const renderedOutput = logSpy.mock.calls.map((call) => call[0]).join("\n");
+    expect(renderedOutput).toContain("found 1 possible flash issue(s) and 1 possible framing issue(s)");
+    expect(renderedOutput).toContain("FLASH ~8.13s: near-black frame at the cut");
+    expect(renderedOutput).toContain("FRAMING ~12.40s: subject drifted out of frame");
+    // Still always tells the human to actually watch it -- the check is a
+    // safety net, not a replacement.
+    expect(renderedOutput).toContain("Run \`cutshort preview");
   });
 
   it("warns (but doesn't block) when the command's own file check finds a path the agent claimed but didn't write", async () => {

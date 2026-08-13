@@ -15,6 +15,7 @@ import { designAmendCommand } from "./commands/design-amend";
 import { renderCommand } from "./commands/render";
 import { previewCommand } from "./commands/preview";
 import { verifyRenderCommand } from "./commands/verify-render";
+import { designBuildCheckCommand } from "./commands/design-build-check";
 import {
   detectDefaultAgent,
   isAgentName,
@@ -289,6 +290,26 @@ program
   .requiredOption("--topic <id>", "Topic id -- verify-render operates on one rendered topic at a time")
   .action(async (slug: string, options: { topic: string }) => {
     return verifyRenderCommand(slug, options.topic);
+  });
+
+program
+  .command("build-check <slug>")
+  .description(
+    "Render a topic's current proxy build to a scratch file and check it for cut-boundary flash " +
+      "defects AND crop/framing problems throughout every shot, before it's presented for Studio " +
+      "review. Runs automatically after `design build` saves a proxy -- this is for re-running it " +
+      "manually (e.g. after a hand-edit) without regenerating the whole proxy.",
+  )
+  .requiredOption("--topic <id>", "Topic id -- build-check operates on one built topic at a time")
+  .option("--agent <provider>", "Agent provider: claude or codex. Omit to auto-detect.")
+  .action(async (slug: string, options: { topic: string; agent?: string }) => {
+    const requestedAgent = options.agent ?? detectDefaultAgent();
+    if (!isAgentName(requestedAgent)) {
+      console.error(`\nUnknown agent "${requestedAgent}" -- must be one of: claude, codex`);
+      process.exit(1);
+    }
+    const result = await designBuildCheckCommand(slug, options.topic, requestedAgent);
+    console.log(JSON.stringify(result, null, 2));
   });
 
 program.parse();

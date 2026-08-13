@@ -25,6 +25,7 @@ import { reviewLoop } from "../lib/review-loop";
 import { readTemplateManifest } from "./design-edit-copy";
 import { renderCommand } from "./render";
 import { verifyRenderCommand } from "./verify-render";
+import { designBuildCheckCommand } from "./design-build-check";
 import type { TemplateManifest } from "../../src/templates/contract";
 
 // Purely mechanical -- no LLM call. Used by `design build --finalize` to
@@ -576,7 +577,7 @@ export async function designBuildCommand(
     },
   );
 
-  applyBuildProposal(slug, design!, structure, topicId, proposal, agent);
+  await applyBuildProposal(slug, design!, structure, topicId, proposal, agent);
 }
 
 // The save step -- identical whether the proposal came from a human
@@ -584,14 +585,14 @@ export async function designBuildCommand(
 // back a non-interactive candidate. Exported so design-approve.ts can call
 // it. Proxy-only: `--finalize` is mechanical and handled entirely above,
 // never through reviewLoop.
-export function applyBuildProposal(
+export async function applyBuildProposal(
   slug: string,
   design: DesignData,
   structure: ContentStructure,
   topicId: string,
   proposal: BuildProposal,
   agent: AgentName,
-): void {
+): Promise<void> {
   structure.build = {
     compositionFile: proposal.compositionFile,
     extractedClip: proposal.extractedClip,
@@ -605,10 +606,36 @@ export function applyBuildProposal(
   console.log(
     `\nSaved build output (720p proxy) for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
   );
+
   console.log(
-    `\nThis is the one required manual checkpoint in the pipeline -- not auto-continuing. ` +
-      `Run \`cutshort preview ${slug} --topic ${topicId}\` and actually watch it in Remotion Studio ` +
-      `(crop/timing bugs pass this command's own self-check but are only visible by looking).`,
+    `\nRunning an automated flash + crop check before Studio review (renders a scratch copy, no ` +
+      `LLM call for the render itself, one agent call to look at the results)...`,
+  );
+  const checkResult = await designBuildCheckCommand(slug, topicId, agent);
+
+  if (checkResult.clean) {
+    console.log(
+      `\nAutomated check: clean -- no flash detected, subject looked reasonably framed at every ` +
+        `checked point.`,
+    );
+  } else {
+    console.log(
+      `\nAutomated check found ${checkResult.flashesFound.length} possible flash issue(s) and ` +
+        `${checkResult.framingIssues.length} possible framing issue(s):`,
+    );
+    for (const f of checkResult.flashesFound) {
+      console.log(`  - FLASH ~${f.timestamp.toFixed(2)}s: ${f.notes}`);
+    }
+    for (const f of checkResult.framingIssues) {
+      console.log(`  - FRAMING ~${f.timestamp.toFixed(2)}s: ${f.notes}`);
+    }
+    console.log(`These are worth specifically re-checking during your Studio review below.`);
+  }
+
+  console.log(
+    `\nThis is still the one required manual checkpoint in the pipeline -- not auto-continuing, ` +
+      `and the automated check above is a safety net, not a replacement. Run \`cutshort preview ` +
+      `${slug} --topic ${topicId}\` and actually watch it in Remotion Studio.`,
   );
   console.log(
     `\nOnly once it looks right, run \`cutshort design build ${slug} --topic ${topicId} --finalize\` ` +
