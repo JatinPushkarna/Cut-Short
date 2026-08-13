@@ -44,8 +44,8 @@ function isRetryable(error: unknown): boolean {
   return !["ENOENT", "EACCES", "EINVAL"].includes(cause.code ?? "");
 }
 
-function waitBeforeRetry(): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function resolvedOptions(options?: AgentRunOptions): Required<AgentRunOptions> {
@@ -60,22 +60,22 @@ function runOnce(
   projectDir: string,
   agent: AgentName,
   timeoutMs: number,
-): string {
+): Promise<string> {
   return getAgentProvider(agent).run({ prompt, projectDir }, { timeoutMs });
 }
 
-function runWithRetries<T>(
+async function runWithRetries<T>(
   agent: AgentName,
   options: Required<AgentRunOptions>,
-  run: () => T,
-): T {
+  run: () => Promise<T>,
+): Promise<T> {
   const maxAttempts = options.retries + 1;
   const failures: string[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     console.log(`Agent attempt ${attempt}/${maxAttempts}`);
     try {
-      return run();
+      return await run();
     } catch (error) {
       const formatted = executionError(agent, error);
       failures.push(formatted.message);
@@ -90,7 +90,7 @@ function runWithRetries<T>(
       console.log(
         `Attempt ${attempt} failed: ${formatted.message}\nRetrying in 1 second...`,
       );
-      waitBeforeRetry();
+      await sleep(1000);
     }
   }
 
@@ -102,7 +102,7 @@ export function runAgentTask(
   projectDir: string,
   agent: AgentName = "claude",
   options?: AgentRunOptions,
-): string {
+): Promise<string> {
   const resolved = resolvedOptions(options);
   return runWithRetries(agent, resolved, () =>
     runOnce(prompt, projectDir, agent, resolved.timeoutMs),
@@ -117,10 +117,10 @@ export function runAgentTaskJson<T>(
   projectDir: string,
   agent: AgentName = "claude",
   options?: AgentRunOptions,
-): T {
+): Promise<T> {
   const resolved = resolvedOptions(options);
-  return runWithRetries(agent, resolved, () => {
-    const result = runOnce(prompt, projectDir, agent, resolved.timeoutMs);
+  return runWithRetries(agent, resolved, async () => {
+    const result = await runOnce(prompt, projectDir, agent, resolved.timeoutMs);
     const fenced = result.match(/```(?:json)?\s*([\s\S]*?)```/);
     let jsonText = (fenced ? fenced[1] : result).trim();
 

@@ -19,7 +19,7 @@ export const DEFAULT_AGENT_RETRIES = 3;
 
 export interface AgentProvider {
   readonly name: AgentName;
-  run(task: AgentTask, options?: AgentRunOptions): string;
+  run(task: AgentTask, options?: AgentRunOptions): Promise<string>;
 }
 
 export function isAgentName(value: string): value is AgentName {

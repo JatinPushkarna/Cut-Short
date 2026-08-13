@@ -161,7 +161,7 @@ export async function designBuildCheckCommand(
   fs.unlinkSync(scratchVideo);
 
   console.log(`\nAsking ${agent} to review ${boundarySheets.length + interiorSheets.length} contact sheet(s)...`);
-  const result = runAgentTaskJson<BuildCheckResult>(
+  const result = await runAgentTaskJson<BuildCheckResult>(
     buildPrompt(boundarySheets, interiorSheets),
     projectDir(slug),
     agent,

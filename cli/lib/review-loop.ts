@@ -42,13 +42,13 @@ export type ReviewLoopOptions = {
 // `cutshort design approve` command is the only thing that can turn a
 // pending candidate into a real, saved one; see design-approve.ts.
 export async function reviewLoop<T>(
-  generate: (feedback: string | undefined) => T,
+  generate: (feedback: string | undefined) => T | Promise<T>,
   render: (result: T) => string,
   options: ReviewLoopOptions
 ): Promise<T> {
   if (!process.stdout.isTTY) {
     console.log(`\nAsking ${options.agent}...\n`);
-    const result = generate(options.initialFeedback);
+    const result = await generate(options.initialFeedback);
     console.log(render(result));
 
     const pending: PendingCandidate<T> = {
@@ -74,7 +74,7 @@ export async function reviewLoop<T>(
 
   while (true) {
     console.log(`\nAsking ${options.agent}...\n`);
-    const result = generate(feedback);
+    const result = await generate(feedback);
     console.log(render(result));
 
     const answer = await prompts({

@@ -11,57 +11,55 @@ describe("agent runner", () => {
     expect(getAgentProvider("codex")).toBe(codexProvider);
   });
 
-  it("uses Claude by default", () => {
-    vi.spyOn(claudeProvider, "run").mockReturnValue("done");
-    expect(runAgentTask("prompt", "/project")).toBe("done");
+  it("uses Claude by default", async () => {
+    vi.spyOn(claudeProvider, "run").mockResolvedValue("done");
+    await expect(runAgentTask("prompt", "/project")).resolves.toBe("done");
     expect(claudeProvider.run).toHaveBeenCalledWith(
       { prompt: "prompt", projectDir: "/project" },
       { timeoutMs: 300_000 },
     );
   });
 
-  it("uses Codex when requested", () => {
-    vi.spyOn(codexProvider, "run").mockReturnValue("done");
-    expect(runAgentTask("prompt", "/project", "codex")).toBe("done");
+  it("uses Codex when requested", async () => {
+    vi.spyOn(codexProvider, "run").mockResolvedValue("done");
+    await expect(runAgentTask("prompt", "/project", "codex")).resolves.toBe(
+      "done",
+    );
     expect(codexProvider.run).toHaveBeenCalledWith(
       { prompt: "prompt", projectDir: "/project" },
       { timeoutMs: 300_000 },
     );
   });
 
-  it("reports when the selected executable is unavailable", () => {
+  it("reports when the selected executable is unavailable", async () => {
     const error = Object.assign(new Error("missing"), { code: "ENOENT" });
-    vi.spyOn(codexProvider, "run").mockImplementation(() => {
-      throw error;
-    });
-    expect(() => runAgentTask("prompt", "/project", "codex")).toThrow(
+    vi.spyOn(codexProvider, "run").mockRejectedValue(error);
+    await expect(runAgentTask("prompt", "/project", "codex")).rejects.toThrow(
       "not installed",
     );
     expect(codexProvider.run).toHaveBeenCalledTimes(1);
   });
 
-  it("doesn't double-wrap a provider's own already-formatted error", () => {
-    vi.spyOn(claudeProvider, "run").mockImplementation(() => {
-      throw new Error("Claude Code task failed: boom");
-    });
-    expect(() =>
+  it("doesn't double-wrap a provider's own already-formatted error", async () => {
+    vi.spyOn(claudeProvider, "run").mockRejectedValue(
+      new Error("Claude Code task failed: boom"),
+    );
+    await expect(
       runAgentTask("prompt", "/project", "claude", { retries: 0 }),
-    ).toThrow(/^Claude Code task failed: boom$/);
+    ).rejects.toThrow(/^Claude Code task failed: boom$/);
   });
 
-  it("retries a timed-out provider once and returns its later result", () => {
+  it("retries a timed-out provider once and returns its later result", async () => {
     const timeout = Object.assign(new Error("timed out"), {
       code: "ETIMEDOUT",
     });
     vi.spyOn(codexProvider, "run")
-      .mockImplementationOnce(() => {
-        throw timeout;
-      })
-      .mockReturnValueOnce("done");
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce("done");
 
-    expect(
+    await expect(
       runAgentTask("prompt", "/project", "codex", { retries: 1 }),
-    ).toBe("done");
+    ).resolves.toBe("done");
     expect(codexProvider.run).toHaveBeenCalledTimes(2);
   });
 });
@@ -73,26 +71,28 @@ describe("runAgentTaskJson", () => {
     ['[{"id":"1"}]', [{ id: "1" }]],
     ['```json\n{"a":1}\n```', { a: 1 }],
     ['Here is the result: {"a":2} -- done', { a: 2 }],
-  ])("parses provider output %#", (response, expected) => {
-    vi.spyOn(codexProvider, "run").mockReturnValue(response as string);
-    expect(runAgentTaskJson("prompt", "/project", "codex")).toEqual(expected);
+  ])("parses provider output %#", async (response, expected) => {
+    vi.spyOn(codexProvider, "run").mockResolvedValue(response as string);
+    await expect(
+      runAgentTaskJson("prompt", "/project", "codex"),
+    ).resolves.toEqual(expected);
   });
 
-  it("names the provider when output is invalid", () => {
-    vi.spyOn(codexProvider, "run").mockReturnValue("not json");
-    expect(() =>
+  it("names the provider when output is invalid", async () => {
+    vi.spyOn(codexProvider, "run").mockResolvedValue("not json");
+    await expect(
       runAgentTaskJson("prompt", "/project", "codex", { retries: 0 }),
-    ).toThrow("codex task returned invalid JSON");
+    ).rejects.toThrow("codex task returned invalid JSON");
   });
 
-  it("retries malformed JSON once and accepts a valid later response", () => {
+  it("retries malformed JSON once and accepts a valid later response", async () => {
     vi.spyOn(codexProvider, "run")
-      .mockReturnValueOnce("not json")
-      .mockReturnValueOnce('{"accepted":true}');
+      .mockResolvedValueOnce("not json")
+      .mockResolvedValueOnce('{"accepted":true}');
 
-    expect(
+    await expect(
       runAgentTaskJson("prompt", "/project", "codex", { retries: 1 }),
-    ).toEqual({ accepted: true });
+    ).resolves.toEqual({ accepted: true });
     expect(codexProvider.run).toHaveBeenCalledTimes(2);
   });
 });

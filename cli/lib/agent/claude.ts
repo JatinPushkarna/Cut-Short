@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execWithTreeKillTimeout } from "./exec-with-timeout";
 import {
   DEFAULT_AGENT_TIMEOUT_MS,
   type AgentProvider,
@@ -13,8 +13,8 @@ type ClaudeEnvelope = {
 export const claudeProvider: AgentProvider = {
   name: "claude",
 
-  run({ prompt, projectDir }, options?: AgentRunOptions): string {
-    const output = execFileSync(
+  async run({ prompt, projectDir }, options?: AgentRunOptions): Promise<string> {
+    const output = await execWithTreeKillTimeout(
       "claude",
       [
         "-p",
@@ -26,9 +26,7 @@ export const claudeProvider: AgentProvider = {
         projectDir,
       ],
       {
-        encoding: "utf-8",
-        maxBuffer: 20 * 1024 * 1024,
-        timeout: options?.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS,
+        timeoutMs: options?.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS,
       },
     );
 

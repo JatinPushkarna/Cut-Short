@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { execWithTreeKillTimeout } from "./exec-with-timeout";
 import {
   DEFAULT_AGENT_TIMEOUT_MS,
   type AgentProvider,
@@ -9,7 +9,7 @@ import {
 export const codexProvider: AgentProvider = {
   name: "codex",
 
-  run({ prompt, projectDir }, options?: AgentRunOptions): string {
+  async run({ prompt, projectDir }, options?: AgentRunOptions): Promise<string> {
     // On Windows, launching npm's .cmd shim with execFileSync fails on Node 24.
     // Call the globally installed JS entry point with Node instead. Keeping
     // shell:false also prevents prompt text from being interpreted by a shell.
@@ -28,7 +28,7 @@ export const codexProvider: AgentProvider = {
           ),
         ]
       : [];
-    return execFileSync(
+    return execWithTreeKillTimeout(
       executable,
       [
         ...codexArgs,
@@ -42,9 +42,7 @@ export const codexProvider: AgentProvider = {
         projectDir,
       ],
       {
-        encoding: "utf-8",
-        maxBuffer: 20 * 1024 * 1024,
-        timeout: options?.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS,
+        timeoutMs: options?.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS,
       },
     );
   },
