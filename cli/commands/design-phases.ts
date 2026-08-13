@@ -96,7 +96,17 @@ export async function applyPhasesProposal(
     return;
   }
   console.log(`\nStarting design topics automatically...\n`);
-  await designTopicsCommand(slug);
+  try {
+    await designTopicsCommand(slug);
+  } catch (err) {
+    console.error(
+      `\nPhases saved successfully -- that part is safe and locked in.\n` +
+        `Auto-continuing into design topics failed: ${err instanceof Error ? err.message : String(err)}\n` +
+        `Nothing was lost. Retry just that stage yourself:\n` +
+        `  cutshort design topics ${slug}\n`,
+    );
+    process.exit(1);
+  }
 }
 
 export async function designPhasesCommand(

@@ -200,7 +200,17 @@ export async function applyObjectiveProposal(
     return;
   }
   console.log(`\nStarting design phases automatically...\n`);
-  await designPhasesCommand(slug);
+  try {
+    await designPhasesCommand(slug);
+  } catch (err) {
+    console.error(
+      `\nObjective saved successfully -- that part is safe and locked in.\n` +
+        `Auto-continuing into design phases failed: ${err instanceof Error ? err.message : String(err)}\n` +
+        `Nothing was lost. Retry just that stage yourself:\n` +
+        `  cutshort design phases ${slug}\n`,
+    );
+    process.exit(1);
+  }
 }
 
 export async function designObjectiveCommand(

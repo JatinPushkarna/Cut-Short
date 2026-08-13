@@ -230,7 +230,17 @@ export async function applyEditCopyProposal(
     return;
   }
   console.log(`\nStarting design build automatically for topic ${topicId}...\n`);
-  await designBuildCommand(slug, topicId);
+  try {
+    await designBuildCommand(slug, topicId);
+  } catch (err) {
+    console.error(
+      `\nEdit copy for topic ${topicId} saved successfully -- that part is safe and locked in.\n` +
+        `Auto-continuing into design build failed: ${err instanceof Error ? err.message : String(err)}\n` +
+        `Nothing was lost. Retry just that stage yourself:\n` +
+        `  cutshort design build ${slug} --topic ${topicId}\n`,
+    );
+    process.exit(1);
+  }
 }
 
 export async function designEditCopyCommand(

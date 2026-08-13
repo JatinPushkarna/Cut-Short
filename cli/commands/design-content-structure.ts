@@ -344,7 +344,18 @@ export async function applyContentStructureProposal(
       console.log(
         `\nStarting design edit-copy automatically for topic ${entry.topicId}...\n`,
       );
-      await designEditCopyCommand(slug, entry.topicId);
+      try {
+        await designEditCopyCommand(slug, entry.topicId);
+      } catch (err) {
+        console.error(
+          `\nContent structure for topic ${entry.topicId} saved successfully -- that part is safe ` +
+            `and locked in.\nAuto-continuing into edit-copy failed: ` +
+            `${err instanceof Error ? err.message : String(err)}\n` +
+            `Nothing was lost. Retry just that stage yourself:\n` +
+            `  cutshort design edit-copy ${slug} --topic ${entry.topicId}\n`,
+        );
+        process.exit(1);
+      }
     } else if (variantCount > 1) {
       console.log(
         `\nTopic "${entry.topicId}" has ${variantCount} content structure variants saved -- ` +

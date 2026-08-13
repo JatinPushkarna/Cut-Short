@@ -149,7 +149,17 @@ export async function applyTopicsProposal(
     console.log(
       `\nStarting design content-structure automatically for the only topic (${allTopics[0].id})...\n`,
     );
-    await designContentStructureCommand(slug, allTopics[0].id);
+    try {
+      await designContentStructureCommand(slug, allTopics[0].id);
+    } catch (err) {
+      console.error(
+        `\nTopics saved successfully -- that part is safe and locked in.\n` +
+          `Auto-continuing into content-structure failed: ${err instanceof Error ? err.message : String(err)}\n` +
+          `Nothing was lost. Retry just that stage yourself:\n` +
+          `  cutshort design content-structure ${slug} --topic ${allTopics[0].id}\n`,
+      );
+      process.exit(1);
+    }
     return;
   }
 

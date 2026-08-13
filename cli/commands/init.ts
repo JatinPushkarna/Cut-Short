@@ -163,5 +163,15 @@ export async function initCommand(): Promise<void> {
     console.log(`  - script referenced (not copied): ${scriptAbsPath}`);
   }
   console.log(`\nStarting transcription automatically...\n`);
-  await transcribeCommand(slug, { model: "medium" });
+  try {
+    await transcribeCommand(slug, { model: "medium" });
+  } catch (err) {
+    console.error(
+      `\nProject created successfully -- that part is safe and locked in.\n` +
+        `Auto-continuing into transcribe failed: ${err instanceof Error ? err.message : String(err)}\n` +
+        `Nothing was lost. Retry just that stage yourself:\n` +
+        `  cutshort transcribe ${slug}\n`,
+    );
+    process.exit(1);
+  }
 }

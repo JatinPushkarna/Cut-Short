@@ -35,6 +35,8 @@ src/Root.local.tsx
 CLAUDE.local.md
 Codex.local.md
 ARCHITECTURE-REVIEW.local.md
+IMPROVEMENTS.local.md
+REFLECTIONS.local.md
 
 # Campaign-specific skills -- contain real campaign strategy/performance
 # data (promo-copywriting) or Lie-Detector-only workflow steps
@@ -46,3 +48,11 @@ ARCHITECTURE-REVIEW.local.md
 .agents/skills/video-editing/
 .agents/skills/promo-copywriting/
 .remotion-bin/
+
+# Verification/debug frames (contact sheets, cut-boundary checks) belong
+# under public/Projects/<slug>/.frame-check/ (already covered by the
+# `public` rule above) or the scratchpad, never the repo root -- but a
+# root-level one has happened by mistake before and would leak real
+# campaign frames (actors' faces, unreleased footage) into public git
+# history. This is a backstop, not the intended location.
+/.frame-check/

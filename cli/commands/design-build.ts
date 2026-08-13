@@ -25,7 +25,7 @@ import { reviewLoop } from "../lib/review-loop";
 import { readTemplateManifest } from "./design-edit-copy";
 import { renderCommand } from "./render";
 import { verifyRenderCommand } from "./verify-render";
-import { designBuildCheckCommand } from "./design-build-check";
+import { designBuildCheckCommand, type BuildCheckResult } from "./design-build-check";
 import type { TemplateManifest } from "../../src/templates/contract";
 
 // Purely mechanical -- no LLM call. Used by `design build --finalize` to
@@ -611,9 +611,22 @@ export async function applyBuildProposal(
     `\nRunning an automated flash + crop check before Studio review (renders a scratch copy, no ` +
       `LLM call for the render itself, one agent call to look at the results)...`,
   );
-  const checkResult = await designBuildCheckCommand(slug, topicId, agent);
+  let checkResult: BuildCheckResult | null = null;
+  try {
+    checkResult = await designBuildCheckCommand(slug, topicId, agent);
+  } catch (err) {
+    console.log(
+      `\nBuild output saved successfully -- that part is safe and locked in.\n` +
+        `The automated check itself failed to run: ${err instanceof Error ? err.message : String(err)}\n` +
+        `Not blocking on this -- the Studio review below is the real, required gate regardless. ` +
+        `Re-run \`cutshort build-check ${slug} --topic ${topicId}\` yourself if you want the automated ` +
+        `pass too, or just proceed straight to Studio.`,
+    );
+  }
 
-  if (checkResult.clean) {
+  if (checkResult === null) {
+    // handled above -- fall through to the unconditional Studio-review message
+  } else if (checkResult.clean) {
     console.log(
       `\nAutomated check: clean -- no flash detected, subject looked reasonably framed at every ` +
         `checked point.`,

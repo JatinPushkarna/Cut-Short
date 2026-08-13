@@ -52,5 +52,15 @@ export async function transcribeCommand(slug: string, options: TranscribeOptions
   console.log(`  - ${path.relative(process.cwd(), wordsOutPath)}`);
 
   console.log(`\nStarting design objective automatically...\n`);
-  await designObjectiveCommand(slug);
+  try {
+    await designObjectiveCommand(slug);
+  } catch (err) {
+    console.error(
+      `\nTranscription saved successfully -- that part is safe and locked in.\n` +
+        `Auto-continuing into design objective failed: ${err instanceof Error ? err.message : String(err)}\n` +
+        `Nothing was lost. Retry just that stage yourself:\n` +
+        `  cutshort design objective ${slug}\n`,
+    );
+    process.exit(1);
+  }
 }
