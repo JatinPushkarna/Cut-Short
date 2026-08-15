@@ -1,5 +1,6 @@
 import { claudeProvider } from "./claude";
 import { codexProvider } from "./codex";
+import { traceAgentCall } from "../observability";
 import {
   DEFAULT_AGENT_RETRIES,
   DEFAULT_AGENT_TIMEOUT_MS,
@@ -104,8 +105,10 @@ export function runAgentTask(
   options?: AgentRunOptions,
 ): Promise<string> {
   const resolved = resolvedOptions(options);
-  return runWithRetries(agent, resolved, () =>
-    runOnce(prompt, projectDir, agent, resolved.timeoutMs),
+  return traceAgentCall({ agent, prompt, projectDir }, () =>
+    runWithRetries(agent, resolved, () =>
+      runOnce(prompt, projectDir, agent, resolved.timeoutMs),
+    ),
   );
 }
 
@@ -119,27 +122,29 @@ export function runAgentTaskJson<T>(
   options?: AgentRunOptions,
 ): Promise<T> {
   const resolved = resolvedOptions(options);
-  return runWithRetries(agent, resolved, async () => {
-    const result = await runOnce(prompt, projectDir, agent, resolved.timeoutMs);
-    const fenced = result.match(/```(?:json)?\s*([\s\S]*?)```/);
-    let jsonText = (fenced ? fenced[1] : result).trim();
+  return traceAgentCall({ agent, prompt, projectDir }, () =>
+    runWithRetries(agent, resolved, async () => {
+      const result = await runOnce(prompt, projectDir, agent, resolved.timeoutMs);
+      const fenced = result.match(/```(?:json)?\s*([\s\S]*?)```/);
+      let jsonText = (fenced ? fenced[1] : result).trim();
 
-    if (!jsonText.startsWith("[") && !jsonText.startsWith("{")) {
-      const start = jsonText.search(/[[{]/);
-      const openChar = jsonText[start];
-      const closeChar = openChar === "[" ? "]" : "}";
-      const end = jsonText.lastIndexOf(closeChar);
-      if (start !== -1 && end > start) {
-        jsonText = jsonText.slice(start, end + 1);
+      if (!jsonText.startsWith("[") && !jsonText.startsWith("{")) {
+        const start = jsonText.search(/[[{]/);
+        const openChar = jsonText[start];
+        const closeChar = openChar === "[" ? "]" : "}";
+        const end = jsonText.lastIndexOf(closeChar);
+        if (start !== -1 && end > start) {
+          jsonText = jsonText.slice(start, end + 1);
+        }
       }
-    }
 
-    try {
-      return JSON.parse(jsonText) as T;
-    } catch (error) {
-      throw new Error(
-        `${agent} task returned invalid JSON.\n\nRaw response:\n${result}\n\nParse error: ${(error as Error).message}`,
-      );
-    }
-  });
+      try {
+        return JSON.parse(jsonText) as T;
+      } catch (error) {
+        throw new Error(
+          `${agent} task returned invalid JSON.\n\nRaw response:\n${result}\n\nParse error: ${(error as Error).message}`,
+        );
+      }
+    }),
+  );
 }

@@ -370,3 +370,35 @@ fail in this environment, and rejects an uncached `--model` value before
 ever shelling out to Python. Writes `SRT/<video basename>.srt` and
 `SRT/<video basename>.words.json` (word-level timestamps) into the
 project's `SRT/` folder.
+
+## Observability — every agent call is traced through Langfuse
+
+`cli/lib/observability.ts` is the single integration point: `traceAgentCall`
+wraps the two functions in `cli/lib/agent/runner.ts` (`runAgentTask`/
+`runAgentTaskJson`) that every pipeline stage already funnels through
+(`design objective/phases/topics/content-structure/edit-copy/build/
+build-check`), so nothing elsewhere in the codebase touches Langfuse
+directly and no per-command wiring was needed. Each call becomes one
+Langfuse "generation" observation — prompt as input, response (or error) as
+output, agent/projectDir/CLI-args as metadata — named after the actual CLI
+invocation (e.g. `design phases`), read straight off `process.argv`.
+
+- **Env-gated, not required**: reads `LANGFUSE_PUBLIC_KEY`/
+  `LANGFUSE_SECRET_KEY`/`LANGFUSE_BASE_URL` from a gitignored root `.env`
+  (see `.env.example`). Missing keys mean tracing silently no-ops straight
+  through to the real agent call — never a broken pipeline run, same as
+  every other failure mode here (bad creds, Langfuse outage, a flush
+  timeout all just log a warning and continue).
+- **Separate Langfuse project from AI Studio, deliberately** — this repo's
+  traces are reimplemented independently, not imported from AI Studio's
+  `ai_studio_observability` package. Same pattern (single integration
+  point, call-site-stable, always-degrade-gracefully), no cross-repo
+  dependency.
+- **`forceFlush()` after every single call, not a shutdown hook** — this
+  CLI calls `process.exit()` from dozens of places, several right after an
+  agent call returns (e.g. `review-loop.ts`'s non-interactive path exits
+  immediately after printing a proposal). A batched exporter flushed only
+  at process shutdown would lose spans to exactly that race. Each trace is
+  fully sent (`exportMode: "immediate"` plus an explicit `forceFlush()`)
+  before `runAgentTask`/`runAgentTaskJson` even resolves, so it survives
+  whatever the caller does next.
