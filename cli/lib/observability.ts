@@ -32,7 +32,17 @@ function getClient(): Client | null {
     return client;
   }
 
-  if (!process.env.LANGFUSE_PUBLIC_KEY || !process.env.LANGFUSE_SECRET_KEY) {
+  // Vitest sets process.env.VITEST for every test run. Never auto-load the
+  // real root .env under a test run -- a dev's real Langfuse credentials
+  // sitting in that file would otherwise get picked up by any test that
+  // exercises runAgentTask/runAgentTaskJson without explicitly mocking this
+  // module, silently firing real traces during `npm test`. A test that wants
+  // the "keys present" path sets process.env.LANGFUSE_* directly instead
+  // (see observability.test.ts), which this check doesn't affect.
+  if (
+    !process.env.VITEST &&
+    (!process.env.LANGFUSE_PUBLIC_KEY || !process.env.LANGFUSE_SECRET_KEY)
+  ) {
     loadDotEnvOnce();
   }
 

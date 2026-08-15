@@ -34,6 +34,21 @@ describe("traceAgentCall -- Langfuse keys absent", () => {
       traceAgentCall({ agent: "claude", prompt: "p", projectDir: "/d" }, run),
     ).rejects.toThrow("boom");
   });
+
+  it("never reads a real .env under a test run, even if one exists on disk", async () => {
+    const { existsSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(true);
+
+    const { traceAgentCall } = await import("./observability");
+    const run = vi.fn().mockResolvedValue("result");
+
+    await traceAgentCall({ agent: "claude", prompt: "p", projectDir: "/d" }, run);
+
+    // A dev's real Langfuse keys sitting in the repo's root .env must never
+    // get loaded by a test -- that would spin up a real client and fire real
+    // traces (see observability.ts's process.env.VITEST guard).
+    expect(existsSync).not.toHaveBeenCalled();
+  });
 });
 
 describe("traceAgentCall -- Langfuse keys present", () => {
