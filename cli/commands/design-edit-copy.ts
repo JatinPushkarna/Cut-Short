@@ -19,7 +19,6 @@ import {
 } from "../lib/project";
 import { reviewLoop } from "../lib/review-loop";
 import type { TemplateManifest } from "../../src/templates/contract";
-import { designBuildCommand } from "./design-build";
 
 // The project's locked template is a known path (src/templates/<slug>/manifest.ts)
 // -- reading it directly is simpler and more reliable than routing it through
@@ -208,8 +207,6 @@ export async function applyEditCopyProposal(
   proposal: EditCopyProposal,
   agent: AgentName,
 ): Promise<void> {
-  const alreadyBuilt = Boolean(structure.build);
-
   structure.editCopy = {
     ...proposal.editCopy,
     generatedBy: agent,
@@ -220,27 +217,10 @@ export async function applyEditCopyProposal(
   console.log(
     `\nSaved edit copy for topic ${topicId} to Campaign/design.json and Campaign/design.md`,
   );
-
-  // Never auto-clobber a build that already exists for this topic.
-  if (alreadyBuilt) {
-    console.log(
-      `\nA build already exists for topic ${topicId} -- not auto-continuing. Run ` +
-        `\`cutshort design build ${slug} --topic ${topicId}\` yourself if you want to redo it.\n`,
-    );
-    return;
-  }
-  console.log(`\nStarting design build automatically for topic ${topicId}...\n`);
-  try {
-    await designBuildCommand(slug, topicId);
-  } catch (err) {
-    console.error(
-      `\nEdit copy for topic ${topicId} saved successfully -- that part is safe and locked in.\n` +
-        `Auto-continuing into design build failed: ${err instanceof Error ? err.message : String(err)}\n` +
-        `Nothing was lost. Retry just that stage yourself:\n` +
-        `  cutshort design build ${slug} --topic ${topicId}\n`,
-    );
-    process.exit(1);
-  }
+  console.log(
+    `\nEdit copy is locked. Next, generate a build proposal when you are ready:\n` +
+      `  cutshort design build ${slug} --topic ${topicId}\n`,
+  );
 }
 
 export async function designEditCopyCommand(
