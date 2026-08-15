@@ -65,6 +65,35 @@ type TraceParams = {
   projectDir: string;
 };
 
+// Langfuse's own client has a `timeout` option (default 5s) for individual
+// requests, but that doesn't guarantee forceFlush() itself ever settles --
+// the same class of hang execWithTreeKillTimeout works around for the CLI's
+// own child-process calls (see exec-with-timeout.ts). A stalled TLS
+// handshake or a firewall black-holing the connection can leave the
+// underlying network call pending with nothing to reject it. Race it
+// against a hard timer so a Langfuse hang can never block a pipeline stage.
+const LANGFUSE_FLUSH_TIMEOUT_MS = 8_000;
+
+function withHardTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.warn(`${label} timed out after ${ms}ms, continuing without waiting further`);
+      resolve(undefined);
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        console.warn(`${label} failed: ${(err as Error).message}`);
+        resolve(undefined);
+      },
+    );
+  });
+}
+
 // Wraps one runAgentTask/runAgentTaskJson call (including its internal
 // retries) in a single Langfuse trace. No-ops straight through to run() if
 // tracing isn't configured, so callers behave identically either way.
@@ -140,11 +169,7 @@ export async function traceAgentCall<T>(params: TraceParams, run: () => Promise<
     }
   }
 
-  try {
-    await active.processor.forceFlush();
-  } catch (err) {
-    console.warn(`Langfuse flush failed: ${(err as Error).message}`);
-  }
+  await withHardTimeout(active.processor.forceFlush(), LANGFUSE_FLUSH_TIMEOUT_MS, "Langfuse flush");
 
   if (hadError) {
     throw caught;

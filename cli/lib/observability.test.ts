@@ -119,6 +119,24 @@ describe("traceAgentCall -- Langfuse keys present", () => {
     expect(forceFlush).toHaveBeenCalledTimes(1);
   });
 
+  it("gives up waiting on a hung forceFlush() instead of blocking forever", async () => {
+    vi.useFakeTimers();
+    forceFlush.mockReturnValue(new Promise(() => {})); // never resolves
+
+    const update = vi.fn();
+    const startActiveObservation = vi.fn(async (_name, fn) => fn({ update }));
+    vi.doMock("@langfuse/tracing", () => ({ startActiveObservation }));
+
+    const { traceAgentCall } = await import("./observability");
+    const run = vi.fn().mockResolvedValue("agent result");
+
+    const pending = traceAgentCall({ agent: "claude", prompt: "p", projectDir: "/d" }, run);
+    await vi.advanceTimersByTimeAsync(8_000);
+
+    await expect(pending).resolves.toBe("agent result");
+    vi.useRealTimers();
+  });
+
   it("returns a successful agent result if recording that result fails", async () => {
     const update = vi.fn((values: Record<string, unknown>) => {
       if ("output" in values) {
