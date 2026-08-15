@@ -23,9 +23,10 @@ Every change goes on its own local branch (e.g. `codex/<short-description>`).
 No need to push it anywhere -- this is reviewed locally, not through a
 GitHub PR. When the branch is ready, tell the user what you did and which
 branch it's on. Don't merge it yourself, even if you're confident it's
-correct -- a separate review pass (a Claude Code session) checks the diff
-and runs tests first; that's the whole point of the branch, so merging
-your own work defeats it.
+correct -- an independent agent review checks the diff and runs tests first:
+Claude Code reviews Codex-authored changes, and Codex reviews Claude-authored
+changes. That's the whole point of the branch, so merging your own work
+defeats it.
 
 **Name the branch after what changed in this generic tool repo, never after
 the private project/task that prompted it** -- e.g. `codex/windows-launch-fix`,
