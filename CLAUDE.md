@@ -17,24 +17,20 @@ history.
 
 @CLAUDE.local.md
 
-## Reviewing Codex's work
+## Independent agent review
 
-Codex (a separate coding agent also used in this repo) works on its own
-local branches (`codex/<short-description>`, not pushed anywhere) and
-never merges its own work — see `AGENTS.md`'s "Git workflow" section for
-its side of this convention. When the user asks to review a Codex branch:
-diff it against `main`, run the relevant tests, and merge it yourself if
-it's clean — no need to ask first, since merging a local branch into
-local `main` is reversible. Only escalate to the user for a product
-decision, a risky/irreversible change, or a test failure you can't
-resolve yourself. The user isn't expected to read the diff themselves;
-that review is your job.
+Codex and Claude Code both work on their own local branches, never push,
+and never merge their own work. The independent reviewer checks the diff
+and runs relevant tests before merging locally into `main`: Claude Code
+reviews Codex-authored changes, and Codex reviews Claude-authored changes.
 
-This doesn't change how *you* work in this repo — you still commit
-directly to `main` as before. The branch-first rule applies to Codex,
-not to you: the user reviews your changes live, in this conversation, as
-you make them, which is why you don't need a separate branch-and-review
-step for your own commits.
+When reviewing a Codex branch: diff it against `main`, run the relevant
+tests, and merge it yourself if it's clean. For a Claude-authored branch,
+ask Codex to perform the equivalent review and merge only after it passes.
+No separate user approval is needed for a clean local merge because it is
+reversible. Escalate only for a product decision, a risky/irreversible
+change, or a test failure that cannot be resolved. The user is not expected
+to read the diff; independent review is the reviewer’s job.
 
 ## Composition work goes through `cutshort design`/`cutshort render` — never by hand
 
