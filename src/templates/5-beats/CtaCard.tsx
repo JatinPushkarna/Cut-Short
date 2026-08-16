@@ -30,7 +30,9 @@ export const CtaCard: React.FC<CtaCardProps> = ({
         justifyContent: "center",
         alignItems: "center",
         opacity,
-        padding: 120,
+        // Responsive padding keeps the CTA's phrase-level text blocks wide
+        // enough on review proxies while preserving the 4K composition look.
+        padding: width * 0.06,
       }}
     >
       <div
@@ -41,6 +43,7 @@ export const CtaCard: React.FC<CtaCardProps> = ({
           fontSize: titleFontSize,
           ...wrapStyle(92),
           ...noBreakWrap,
+          width: "92%",
           textShadow: "0 4px 20px rgba(0,0,0,0.6)",
         }}
       >
@@ -54,6 +57,7 @@ export const CtaCard: React.FC<CtaCardProps> = ({
           fontSize: subtitleFontSize,
           ...wrapStyle(88),
           ...noBreakWrap,
+          width: "88%",
           marginTop: 32,
         }}
       >
@@ -68,6 +72,7 @@ export const CtaCard: React.FC<CtaCardProps> = ({
             fontSize: counterFontSize,
             ...wrapStyle(88),
             ...noBreakWrap,
+            width: "88%",
             marginTop: 48,
           }}
         >

@@ -36,7 +36,11 @@ export const HookScene: React.FC<HookSceneProps> = ({ bgSrc, text }) => {
     fontFamily,
     ...TYPE.hook,
     fontSize: hookFontSize,
-    ...wrapStyle(88),
+    // Absolute children otherwise shrink-wrap to their longest word, which
+    // turns a short hook into a stack of one-word lines on 720px previews.
+    // Fill the intentionally wide parent so wrapping happens by phrase.
+    width: "100%",
+    ...wrapStyle(100),
     ...noBreakWrap,
   };
 
@@ -61,9 +65,16 @@ export const HookScene: React.FC<HookSceneProps> = ({ bgSrc, text }) => {
       />
 
       <AbsoluteFill
-        style={{ justifyContent: "center", alignItems: "center", padding: 120, transform: `scale(${scale})` }}
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+          // Same visual margin at 4K, but avoid consuming one-third of a
+          // 720px proxy canvas before text gets a chance to wrap naturally.
+          padding: width * 0.06,
+          transform: `scale(${scale})`,
+        }}
       >
-        <div style={{ position: "relative", width: "88%", ...wrapStyle(88) }}>
+        <div style={{ position: "relative", width: "100%", ...wrapStyle(100) }}>
           <div
             style={{ ...textBaseStyle, left: -splitPx, top: 0, color: "#37e0e0", opacity: opacity * 0.7, mixBlendMode: "screen" }}
           >
