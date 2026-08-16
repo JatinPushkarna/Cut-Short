@@ -31,7 +31,7 @@ Codex-authored changes, and Codex reviews Claude-authored changes.
 
 When reviewing a Codex branch: diff it against `main`, run the relevant
 tests, and merge it yourself if it's clean. For a Claude-authored branch,
-ask Codex to perform the equivalent review and merge only after it passes.
+send the review packet to Codex and merge only after it passes.
 No separate user approval is needed for a clean local merge because it is
 reversible. Escalate only for a product decision, a risky/irreversible
 change, or a test failure that cannot be resolved. The user is not expected
@@ -41,9 +41,25 @@ Review one commit at a time. The author supplies a compact review packet:
 intent, commit diff, relevant test results, and one precise question. Return
 only APPROVE or REQUEST CHANGES with concise findings. Do not investigate
 adjacent work, create follow-up changes, or rerun tests already supplied.
-Target 90 seconds. If the reviewer is unavailable after one bounded attempt,
-the author may merge once relevant checks pass. Record the unavailable review
-and its reason in the handoff; do not repeatedly retry.
+Target 90 seconds.
+
+**Send the packet to the other agent's own live/interactive session, not a
+freshly spawned headless subprocess** -- don't shell out to `codex exec` for
+a review. A headless subprocess runs inside whatever OS-level sandbox that
+tool applies to its own child processes; a real incident (2026-08-15) showed
+Codex's `[windows] sandbox = "unelevated"` blocking a spawned `claude -p`
+review from reaching the network at all (`ECONNREFUSED 127.0.0.1:9` on
+every attempt, plus blocked subprocess spawning and directory creation) --
+structural, not a flaky connection, so retries and longer timeouts never
+help. A headless `codex exec` review from this side risks the same class of
+failure. Ask the user to relay the packet to Codex's running session if the
+two aren't otherwise connected.
+
+Only fall back to a headless subprocess -- and only then to the rule below
+-- when no live session of the other agent exists to hand off to. If the
+reviewer is unavailable after one bounded attempt, the author may merge once
+relevant checks pass. Record the unavailable review and its reason in the
+handoff; do not repeatedly retry.
 
 ## Composition work goes through `cutshort design`/`cutshort render` — never by hand
 

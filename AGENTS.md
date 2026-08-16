@@ -57,9 +57,23 @@ one commit and provide a compact review packet: intent, commit diff, relevant
 test results, and one precise question. The reviewer returns only APPROVE or
 REQUEST CHANGES with concise findings; it does not investigate adjacent work,
 create follow-up changes, or rerun tests already supplied. Target 90 seconds.
-If the reviewer is unavailable after one bounded attempt, the author may merge
-once relevant checks pass. Record the unavailable review and its reason in the
-handoff; do not repeatedly retry.
+
+**Send the packet to Claude Code's own live/interactive session, not a
+freshly spawned headless subprocess** -- don't shell out to `claude -p` for
+a review. A headless subprocess runs inside your own OS-level sandbox
+(`[windows] sandbox = "unelevated"` in your config) the same way any other
+child process you launch does. A real incident (2026-08-15) showed that
+sandbox blocking a spawned `claude -p` review from reaching the network at
+all (`ECONNREFUSED 127.0.0.1:9` on every attempt, plus blocked subprocess
+spawning and directory creation) -- structural, not a flaky connection, so
+retries and longer timeouts never help. Ask the user to relay the packet to
+Claude Code's running session if the two aren't otherwise connected.
+
+Only fall back to a headless subprocess -- and only then to the rule below
+-- when no live Claude Code session exists to hand off to. If the reviewer
+is unavailable after one bounded attempt, the author may merge once relevant
+checks pass. Record the unavailable review and its reason in the handoff; do
+not repeatedly retry.
 
 Why a branch instead of committing straight to `main`: nobody watches a
 Codex session turn-by-turn the way a live chat session gets watched, so
