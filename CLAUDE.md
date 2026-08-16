@@ -19,10 +19,15 @@ history.
 
 ## Independent agent review
 
-Codex and Claude Code both work on their own local branches, never push,
-and never merge their own work. The independent reviewer checks the diff
-and runs relevant tests before merging locally into `main`: Claude Code
-reviews Codex-authored changes, and Codex reviews Claude-authored changes.
+Codex and Claude Code both work on their own local branches and never push.
+Low-risk changes may be merged directly by their author after relevant checks
+pass. These are documentation, comments, formatting, CSS-only styling, or a
+single localized line change that cannot alter control flow, dependencies,
+configuration, permissions, data, or render timing. When uncertain, treat the
+change as normal risk.
+
+Normal- and high-risk changes require independent review: Claude Code reviews
+Codex-authored changes, and Codex reviews Claude-authored changes.
 
 When reviewing a Codex branch: diff it against `main`, run the relevant
 tests, and merge it yourself if it's clean. For a Claude-authored branch,
@@ -31,6 +36,13 @@ No separate user approval is needed for a clean local merge because it is
 reversible. Escalate only for a product decision, a risky/irreversible
 change, or a test failure that cannot be resolved. The user is not expected
 to read the diff; independent review is the reviewer’s job.
+
+Review one commit at a time. The author supplies a compact review packet:
+intent, commit diff, relevant test results, and one precise question. Return
+only APPROVE or REQUEST CHANGES with concise findings. Do not investigate
+adjacent work, create follow-up changes, or rerun tests already supplied.
+Target 90 seconds. If the reviewer is unavailable, report that once instead
+of repeatedly retrying.
 
 ## Composition work goes through `cutshort design`/`cutshort render` — never by hand
 

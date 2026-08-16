@@ -23,10 +23,10 @@ Every change goes on its own local branch (e.g. `codex/<short-description>`).
 No need to push it anywhere -- this is reviewed locally, not through a
 GitHub PR. When the branch is ready, tell the user what you did and which
 branch it's on. Don't merge it yourself, even if you're confident it's
-correct -- an independent agent review checks the diff and runs tests first:
-Claude Code reviews Codex-authored changes, and Codex reviews Claude-authored
-changes. That's the whole point of the branch, so merging your own work
-defeats it.
+correct -- unless the change is explicitly low risk (defined below). For
+normal code changes, an independent agent review checks the diff and runs
+tests first: Claude Code reviews Codex-authored changes, and Codex reviews
+Claude-authored changes.
 
 **Name the branch after what changed in this generic tool repo, never after
 the private project/task that prompted it** -- e.g. `codex/windows-launch-fix`,
@@ -43,6 +43,21 @@ push to a shared remote. The reviewer escalates to the user only for a
 product decision, a risky/irreversible change, or a test failure it can't
 resolve on its own. The user isn't expected to read the diff themselves --
 that's the reviewing agent's job.
+
+### Risk-based review
+
+Low-risk changes may be merged directly by their author after relevant checks
+pass. These are documentation, comments, formatting, CSS-only styling, or a
+single localized line change that cannot alter control flow, dependencies,
+configuration, permissions, data, or render timing. When uncertain, treat the
+change as normal risk.
+
+Normal- and high-risk changes require independent review. Keep each review to
+one commit and provide a compact review packet: intent, commit diff, relevant
+test results, and one precise question. The reviewer returns only APPROVE or
+REQUEST CHANGES with concise findings; it does not investigate adjacent work,
+create follow-up changes, or rerun tests already supplied. Target 90 seconds.
+If the reviewer is unavailable, report that once instead of repeatedly retrying.
 
 Why a branch instead of committing straight to `main`: nobody watches a
 Codex session turn-by-turn the way a live chat session gets watched, so
