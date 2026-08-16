@@ -57,7 +57,9 @@ one commit and provide a compact review packet: intent, commit diff, relevant
 test results, and one precise question. The reviewer returns only APPROVE or
 REQUEST CHANGES with concise findings; it does not investigate adjacent work,
 create follow-up changes, or rerun tests already supplied. Target 90 seconds.
-If the reviewer is unavailable, report that once instead of repeatedly retrying.
+If the reviewer is unavailable after one bounded attempt, the author may merge
+once relevant checks pass. Record the unavailable review and its reason in the
+handoff; do not repeatedly retry.
 
 Why a branch instead of committing straight to `main`: nobody watches a
 Codex session turn-by-turn the way a live chat session gets watched, so

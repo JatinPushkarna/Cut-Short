@@ -41,8 +41,9 @@ Review one commit at a time. The author supplies a compact review packet:
 intent, commit diff, relevant test results, and one precise question. Return
 only APPROVE or REQUEST CHANGES with concise findings. Do not investigate
 adjacent work, create follow-up changes, or rerun tests already supplied.
-Target 90 seconds. If the reviewer is unavailable, report that once instead
-of repeatedly retrying.
+Target 90 seconds. If the reviewer is unavailable after one bounded attempt,
+the author may merge once relevant checks pass. Record the unavailable review
+and its reason in the handoff; do not repeatedly retry.
 
 ## Composition work goes through `cutshort design`/`cutshort render` — never by hand
 
