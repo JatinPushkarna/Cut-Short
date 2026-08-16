@@ -51,9 +51,35 @@ describe("traceAgentCall -- Langfuse keys absent", () => {
   });
 });
 
+describe("traceAgentCall -- Langfuse keys already exported (not via .env)", () => {
+  afterEach(() => {
+    delete process.env.LANGFUSE_PUBLIC_KEY;
+    delete process.env.LANGFUSE_SECRET_KEY;
+  });
+
+  it("still refuses to build a real client under a test run", async () => {
+    // Simulates a dev or CI box that already has these exported in the
+    // shell/CI environment for the real CLI, not loaded from .env -- the
+    // gap a prior version of this guard missed (it only blocked the .env
+    // load, not this case). getClient() must check process.env.VITEST
+    // unconditionally, before it ever looks at the keys.
+    process.env.LANGFUSE_PUBLIC_KEY = "pk_live";
+    process.env.LANGFUSE_SECRET_KEY = "sk_live";
+
+    const { traceAgentCall } = await import("./observability");
+    const run = vi.fn().mockResolvedValue("result");
+
+    await expect(
+      traceAgentCall({ agent: "claude", prompt: "p", projectDir: "/d" }, run),
+    ).resolves.toBe("result");
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("traceAgentCall -- Langfuse keys present", () => {
   const forceFlush = vi.fn().mockResolvedValue(undefined);
   const register = vi.fn();
+  let originalVitestEnv: string | undefined;
 
   beforeEach(() => {
     vi.resetModules();
@@ -61,6 +87,15 @@ describe("traceAgentCall -- Langfuse keys present", () => {
     process.env.LANGFUSE_PUBLIC_KEY = "pk_test";
     process.env.LANGFUSE_SECRET_KEY = "sk_test";
     forceFlush.mockResolvedValue(undefined);
+
+    // getClient() now unconditionally refuses to build a real client while
+    // process.env.VITEST is set (see observability.ts). These tests exist
+    // specifically to exercise the real client-construction logic, so they
+    // clear it for their own scope -- safe only because the underlying
+    // Langfuse/OpenTelemetry SDK classes are mocked below, so nothing real
+    // ever actually gets built or sent.
+    originalVitestEnv = process.env.VITEST;
+    delete process.env.VITEST;
 
     vi.doMock("@langfuse/otel", () => ({
       LangfuseSpanProcessor: vi.fn().mockImplementation(() => ({ forceFlush })),
@@ -73,6 +108,9 @@ describe("traceAgentCall -- Langfuse keys present", () => {
   afterEach(() => {
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
+    if (originalVitestEnv !== undefined) {
+      process.env.VITEST = originalVitestEnv;
+    }
   });
 
   it("wraps run() in a generation observation, records the output, and flushes", async () => {

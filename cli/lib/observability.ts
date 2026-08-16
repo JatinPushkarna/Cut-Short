@@ -32,17 +32,22 @@ function getClient(): Client | null {
     return client;
   }
 
-  // Vitest sets process.env.VITEST for every test run. Never auto-load the
-  // real root .env under a test run -- a dev's real Langfuse credentials
-  // sitting in that file would otherwise get picked up by any test that
-  // exercises runAgentTask/runAgentTaskJson without explicitly mocking this
-  // module, silently firing real traces during `npm test`. A test that wants
-  // the "keys present" path sets process.env.LANGFUSE_* directly instead
-  // (see observability.test.ts), which this check doesn't affect.
-  if (
-    !process.env.VITEST &&
-    (!process.env.LANGFUSE_PUBLIC_KEY || !process.env.LANGFUSE_SECRET_KEY)
-  ) {
+  // Vitest sets process.env.VITEST for every test run. Never build a real
+  // client under a test run, full stop -- not just when the keys would come
+  // from the repo's .env, but even if LANGFUSE_PUBLIC_KEY/SECRET_KEY are
+  // already sitting in the parent shell/CI environment. Otherwise a dev or
+  // CI box with those exported for the real CLI would have every `npm test`
+  // silently fire real traces. observability.test.ts's own "keys present"
+  // tests need to reach past this to exercise the real client-construction
+  // logic -- they do that by clearing process.env.VITEST for just their own
+  // scope, which is safe there because they also mock the underlying
+  // Langfuse/OpenTelemetry SDK classes, so nothing real ever gets built.
+  if (process.env.VITEST) {
+    client = null;
+    return client;
+  }
+
+  if (!process.env.LANGFUSE_PUBLIC_KEY || !process.env.LANGFUSE_SECRET_KEY) {
     loadDotEnvOnce();
   }
 
