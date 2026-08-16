@@ -63,6 +63,13 @@ describe("traceAgentCall -- Langfuse keys already exported (not via .env)", () =
     // gap a prior version of this guard missed (it only blocked the .env
     // load, not this case). getClient() must check process.env.VITEST
     // unconditionally, before it ever looks at the keys.
+    //
+    // vi.resetModules() is required here: without it, this test reuses the
+    // module instance left behind by the "keys absent" tests, whose cached
+    // `client` variable is already null -- getClient() would short-circuit
+    // on that stale cache and never actually reach the check this test
+    // exists to prove.
+    vi.resetModules();
     process.env.LANGFUSE_PUBLIC_KEY = "pk_live";
     process.env.LANGFUSE_SECRET_KEY = "sk_live";
 
