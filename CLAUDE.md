@@ -19,29 +19,40 @@ history.
 
 ## Independent agent review
 
-Codex and Claude Code both work on their own local branches and never push.
-Low-risk changes may be merged directly by their author after relevant checks
-pass. These are documentation, comments, formatting, CSS-only styling, or a
-single localized line change that cannot alter control flow, dependencies,
-configuration, permissions, data, or render timing. When uncertain, treat the
-change as normal risk.
+Codex and Claude Code both work directly on `main` in the same shared working
+directory and never push. There are no per-agent branches — check
+`git status --branch` before committing so you're not folding in the other
+agent's in-progress, uncommitted work.
+
+Low-risk changes may be committed directly by their author after relevant
+checks pass. These are documentation, comments, formatting, CSS-only
+styling, or a single localized line change that cannot alter control flow,
+dependencies, configuration, permissions, data, or render timing. When
+uncertain, treat the change as normal risk.
 
 Normal- and high-risk changes require independent review: Claude Code reviews
-Codex-authored changes, and Codex reviews Claude-authored changes.
+Codex-authored changes, and Codex reviews Claude-authored changes. The
+reviewer only reviews and gives APPROVE or REQUEST CHANGES — it never
+commits or merges anything itself, in either direction. The author is
+always the one who commits, and only after getting an APPROVE.
 
-When reviewing a Codex branch: diff it against `main`, run the relevant
-tests, and merge it yourself if it's clean. For a Claude-authored branch,
-send the review packet to Codex and merge only after it passes.
-No separate user approval is needed for a clean local merge because it is
-reversible. Escalate only for a product decision, a risky/irreversible
-change, or a test failure that cannot be resolved. The user is not expected
-to read the diff; independent review is the reviewer’s job.
+Author's flow: make the change on `main`, run the relevant tests, then send
+the review packet (diff, test results, one precise question) to the other
+agent's live session before committing. Once that agent responds APPROVE,
+commit it yourself. On REQUEST CHANGES, address the findings and resend
+before committing.
 
-Review one commit at a time. The author supplies a compact review packet:
-intent, commit diff, relevant test results, and one precise question. Return
-only APPROVE or REQUEST CHANGES with concise findings. Do not investigate
-adjacent work, create follow-up changes, or rerun tests already supplied.
-Target 90 seconds.
+No separate user approval is needed for a clean commit because it is
+reversible (`git revert`/`git reset` if needed). Escalate only for a product
+decision, a risky/irreversible change, or a test failure that cannot be
+resolved. The user is not expected to read the diff; independent review is
+the reviewer's job.
+
+Review one logical change at a time. The author supplies a compact review
+packet: intent, the pending (uncommitted) diff, relevant test results, and
+one precise question. Return only APPROVE or REQUEST CHANGES with concise
+findings. Do not investigate adjacent work, create follow-up changes, or
+rerun tests already supplied. Target 90 seconds.
 
 **Send the packet to the other agent's own live/interactive session, not a
 freshly spawned headless subprocess** -- don't shell out to `codex exec` for
@@ -57,7 +68,7 @@ two aren't otherwise connected.
 
 Only fall back to a headless subprocess -- and only then to the rule below
 -- when no live session of the other agent exists to hand off to. If the
-reviewer is unavailable after one bounded attempt, the author may merge once
+reviewer is unavailable after one bounded attempt, the author may commit once
 relevant checks pass. Record the unavailable review and its reason in the
 handoff; do not repeatedly retry.
 
@@ -233,7 +244,7 @@ actually reached, or for approving something on the user's behalf that a
   engineering: write pseudocode first for non-trivial logic and wait for
   approval (see a project's own `CLAUDE.local.md`/`Codex.local.md` for the
   exact rule if one exists), run the test suite (`npm test`) and
-  typecheck before calling a change done, and follow the branch/commit
+  typecheck before calling a change done, and follow the git/commit
   conventions above.
 - **Producing content** means running `cutshort design ...`/`cutshort
   render` (or being asked to help with what those commands should do —

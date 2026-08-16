@@ -17,46 +17,41 @@ history.
 
 @Codex.local.md
 
-## Git workflow — branch locally, never commit straight to `main`
+## Git workflow — commit directly to `main`, no per-agent branches
 
-Every change goes on its own local branch (e.g. `codex/<short-description>`).
-No need to push it anywhere -- this is reviewed locally, not through a
-GitHub PR. When the branch is ready, tell the user what you did and which
-branch it's on. Don't merge it yourself, even if you're confident it's
-correct -- unless the change is explicitly low risk (defined below). For
-normal code changes, an independent agent review checks the diff and runs
-tests first: Claude Code reviews Codex-authored changes, and Codex reviews
-Claude-authored changes.
+Codex and Claude Code both work directly on `main` in the same shared
+working directory and never push. There are no per-agent branches anymore —
+check `git status --short --branch` before committing so you're not folding
+in the other agent's in-progress, uncommitted work.
 
-**Name the branch after what changed in this generic tool repo, never after
-the private project/task that prompted it** -- e.g. `codex/windows-launch-fix`,
-not `codex/<topic-id-or-character-name>`. This repo is public; a branch name
-is git metadata, not file content, so `.gitignore` doesn't protect it, and a
-name pulled from a campaign topic ID or script character leaks exactly the
-kind of private content this repo otherwise goes out of its way to keep out
-(see the file-path rule below). This has happened twice already -- treat it
-as a hard rule, not a style preference.
+For normal code changes, an independent agent review checks the diff and
+runs tests first, before you commit: Claude Code reviews Codex-authored
+changes, and Codex reviews Claude-authored changes. The reviewer only
+reviews and gives APPROVE or REQUEST CHANGES — it never commits anything
+itself, in either direction. You, as the author, are always the one who
+commits, and only after getting an APPROVE (or after the low-risk/
+unavailable-reviewer exceptions below).
 
-The reviewing agent may merge into `main` once review and tests pass,
-without asking the user first -- it's a local, reversible action, not a
-push to a shared remote. The reviewer escalates to the user only for a
-product decision, a risky/irreversible change, or a test failure it can't
-resolve on its own. The user isn't expected to read the diff themselves --
-that's the reviewing agent's job.
+A bad change caught by review never touches `main` because it wasn't
+committed yet. If something bad slips through anyway (missed by review, or
+merged low-risk), fix it with `git revert`/`git reset` — don't treat this as
+license to skip review; the point of reviewing before committing is to keep
+that the exception, not the normal path.
 
 ### Risk-based review
 
-Low-risk changes may be merged directly by their author after relevant checks
-pass. These are documentation, comments, formatting, CSS-only styling, or a
-single localized line change that cannot alter control flow, dependencies,
-configuration, permissions, data, or render timing. When uncertain, treat the
-change as normal risk.
+Low-risk changes may be committed directly by their author after relevant
+checks pass. These are documentation, comments, formatting, CSS-only
+styling, or a single localized line change that cannot alter control flow,
+dependencies, configuration, permissions, data, or render timing. When
+uncertain, treat the change as normal risk.
 
-Normal- and high-risk changes require independent review. Keep each review to
-one commit and provide a compact review packet: intent, commit diff, relevant
-test results, and one precise question. The reviewer returns only APPROVE or
-REQUEST CHANGES with concise findings; it does not investigate adjacent work,
-create follow-up changes, or rerun tests already supplied. Target 90 seconds.
+Normal- and high-risk changes require independent review. Keep each review
+to one logical change and provide a compact review packet: intent, the
+pending (uncommitted) diff, relevant test results, and one precise question.
+The reviewer returns only APPROVE or REQUEST CHANGES with concise findings;
+it does not investigate adjacent work, create follow-up changes, or rerun
+tests already supplied. Target 90 seconds.
 
 **Send the packet to Claude Code's own live/interactive session, not a
 freshly spawned headless subprocess** -- don't shell out to `claude -p` for
@@ -71,16 +66,16 @@ Claude Code's running session if the two aren't otherwise connected.
 
 Only fall back to a headless subprocess -- and only then to the rule below
 -- when no live Claude Code session exists to hand off to. If the reviewer
-is unavailable after one bounded attempt, the author may merge once relevant
+is unavailable after one bounded attempt, the author may commit once relevant
 checks pass. Record the unavailable review and its reason in the handoff; do
 not repeatedly retry.
 
-Why a branch instead of committing straight to `main`: nobody watches a
-Codex session turn-by-turn the way a live chat session gets watched, so
-there's no review happening as the change is made. The branch is what
-creates a place for that review to happen afterward, before anything
-becomes permanent -- if the change is bad, the branch is just deleted and
-`main` was never touched. A direct commit to `main` skips that entirely.
+Why review before committing at all: nobody watches a Codex session
+turn-by-turn the way a live chat session gets watched, so there's no review
+happening as the change is made. Sending the packet before the commit is
+what creates that review checkpoint -- a bad change gets caught while it's
+still just a working-tree diff, before it becomes a commit on `main` at all.
+Skipping straight to a commit skips that checkpoint entirely.
 
 **Every commit needs a clear attribution trailer**, the same way Claude
 Code's own commits already end with
@@ -102,9 +97,10 @@ trailer, not this literal string.)
 Claude Code may run you non-interactively via `codex exec "<prompt>"`
 (or `codex exec --json` for structured output) instead of the user
 relaying messages between two chat sessions by hand. The same rules above
-apply either way -- branch, commit with the trailer, don't merge your own
-work. If invoked this way, `-C <dir>` sets the working root; assume it's
-this repo unless told otherwise.
+apply either way -- get review before committing (unless low-risk or the
+reviewer is unavailable), commit with the trailer, don't commit your own
+work without going through that gate. If invoked this way, `-C <dir>` sets
+the working root; assume it's this repo unless told otherwise.
 
 ## Composition work goes through `cutshort design`/`cutshort render` — never by hand
 
@@ -228,7 +224,7 @@ it.
   engineering: write pseudocode first for non-trivial logic and wait for
   approval (see a project's own `CLAUDE.local.md`/`Codex.local.md` for the
   exact rule if one exists), run the test suite (`npm test`) and
-  typecheck before calling a change done, and follow the branch/commit
+  typecheck before calling a change done, and follow the git/commit
   conventions above.
 - **Producing content** means running `cutshort design ...`/`cutshort
   render` (or being asked to help with what those commands should do —
